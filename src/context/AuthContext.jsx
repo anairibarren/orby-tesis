@@ -1,74 +1,87 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../services/supabase";
-import { 
-  loginUser, 
-  registerUser, 
-  logoutUser,
-  loginWithGoogle
-} from "../services/auth";
+import { getMyProfile } from "../services/profiles";
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
-// PROVIDER GLOBAL
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Cargar sesión inicial
+  const [session, setSession] = useState(null);
+  const [user, setUser] = useState(null);
+
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profile, setProfile] = useState(null);
+
   useEffect(() => {
-    const getSession = async () => {
+    let mounted = true;
+
+    async function init() {
       const { data } = await supabase.auth.getSession();
-      setSession(data.session);
+      if (!mounted) return;
+
+      setSession(data.session ?? null);
       setUser(data.session?.user ?? null);
       setLoading(false);
+    }
+
+    init();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession ?? null);
+      setUser(newSession?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
     };
-
-    getSession();
-
-    // Escuchar cambios en la sesión
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
-      }
-    );
-
-    return () => listener.subscription.unsubscribe();
   }, []);
 
-  // Métodos publicados
-  const login = async ({ email, password }) => {
-    return await loginUser(email, password);
-  };
+  // cargar perfil cuando hay user
+  useEffect(() => {
+    let cancelled = false;
 
-  const loginGoogle = async () => {
-    return await loginWithGoogle(); 
-  };
+    async function loadProfile() {
+      if (!user?.id) {
+        setProfile(null);
+        return;
+      }
+      setProfileLoading(true);
+      try {
+        const data = await getMyProfile(user.id);
+        if (!cancelled) setProfile(data);
+      } catch (e) {
+        // Si todavía no existe el perfil (por RLS o falta de trigger), lo dejamos null
+        if (!cancelled) setProfile(null);
+      } finally {
+        if (!cancelled) setProfileLoading(false);
+      }
+    }
 
-  const register = async ({ email, password }) => {
-    return await registerUser(email, password);
-  };
+    loadProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
-  const logout = async () => {
-    return await logoutUser();
-  };
+  const role = profile?.role ?? user?.user_metadata?.role ?? "client";
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        session,
-        loading,
-        login,
-        loginGoogle, 
-        register,
-        logout,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({
+      loading,
+      session,
+      user,
+      role,
+      profile,
+      profileLoading,
+      setProfile, // útil para actualizar después de onboarding
+    }),
+    [loading, session, user, role, profile, profileLoading]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuthContext() {

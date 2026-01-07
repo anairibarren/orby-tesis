@@ -1,126 +1,81 @@
-import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useAuthContext } from "./context/AuthContext";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "./hooks/useAuth";
 
-// Páginas públicas
-import Welcome from "./pages/Welcome";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Home from "./pages/Home";
+// Layouts
+import ClientLayout from "./app/layouts/ClientLayout";
+import ProviderLayout from "./app/layouts/ProviderLayout";
+import AdminLayout from "./app/layouts/AdminLayout";
 
-// Registro
-import AuthChoice from "./pages/register/AuthChoice";
-import RegisterDetail from "./pages/register/user/RegisterDetail";
-import RegisterVerification from "./pages/register/RegisterVerification";
-
-// Registro prestador
-import RegisterProfile from "./pages/register/provider/RegisterProfile";
-import RegisterProviderDetail from "./pages/register/provider/RegisterDetail";
-
-// Páginas usuario cliente
-import Profile from "./pages/Profile";
-import Requests from "./pages/Requests";
-import EditProfile from "./pages/user/EditProfile";
-import Favorites from "./pages/user/Favorites";
-import History from "./pages/user/History";
-import Notification from "./pages/user/Notification";
-import Chat from "./pages/user/Chat";
-import Settings from "./pages/user/Settings";
-import PaymentMethods from "./pages/user/PaymentMethods";
-import Categories from "./pages/categories/Categories";
-import CategoryList from "./pages/categories/CategoryList";
-import ProvidersList from "./pages/providers/ProvidersList";
-import ProviderProfile from "./pages/providers/ProviderProfile";
-import CalendarPage from "./pages/booking/CalendarPage";
-import ServiceDetail from "./pages/booking/ServicesDetail";
-import ProblemForm from "./pages/forms/ProblemForm";
-import HelpCenter from "./pages/legal/HelpCenter";
-import PrivacyPolicy from "./pages/legal/PrivacyPolicy";
-import Terms from "./pages/legal/Terms";
-import DataUsage from "./pages/legal/DataUsage";
-import AddPayment from "./components/AddPayment";
-import BookingPage from "./pages/booking/BookingPage";
+// Auth pages
+import Login from "./pages/auth/Login";
+import Welcome from "./pages/auth/Welcome";
+import RoleChoice from "./pages/auth/RoleChoice";
+import RegisterAccount from "./pages/auth/RegisterAccount";
+import ProviderLastStep from "./pages/auth/ProviderLastStep";
+import ProviderProfileSetup from "./pages/auth/ProviderProfileSetup";
 
 
 export default function App() {
-  const { user, loading } = useAuthContext();
+  const { loading, user, role } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-[#2A4691]">
-        <div className="flex flex-col items-center">
-          <div className="w-16 h-16 border-4 border-gray-300 border-t-[#1F315C] rounded-full animate-spin"></div>
-          <h2 className="mt-6 text-2xl font-semibold text-white">
-            Cargando Orby...
-          </h2>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="p-6">Cargando…</div>;
 
   return (
-    <BrowserRouter>
-      <Routes>
-        {user ? (
-          <>
-            <Route path="/" element={<Home />} />
-            <Route path="/requests" element={<Requests />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/edit-profile" element={<EditProfile />} />
-            <Route path="/calendar" element={<CalendarPage />} />
-            <Route path="/service-detail" element={<ServiceDetail />} />
-            <Route path="/notification" element={<Notification />} />
-            <Route path="/favorites" element={<Favorites />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/history" element={<History />} />
-            <Route path="/payment-methods" element={<PaymentMethods />} />
-            <Route path="/add-payment" element={<AddPayment />} />
-            <Route path="/chat" element={<Chat />} />
-            <Route path="/categories" element={<Categories />} />
-            <Route path="/category/:categoryId" element={<CategoryList />} />
-            <Route
-              path="/providers/:categoryId/:serviceId"
-              element={<ProvidersList />}
-            />
-            <Route
-              path="/provider/:idPrestador"
-              element={<ProviderProfile />}
-            />
-            <Route path="/problem-form" element={<ProblemForm />} />
-            <Route path="/help" element={<HelpCenter />} />
-            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/data-usage" element={<DataUsage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-            <Route path="/booking/:providerId" element={<BookingPage />} />
+    <Routes>
+      {/* Public */}
+      <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
+      <Route path="/" element={!user ? <Welcome /> : <RoleRedirect role={role} />} />
 
-          </>
-        ) : (
-          <>
-            <Route path="/" element={<Welcome />} />
-            <Route path="/auth" element={<AuthChoice />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
 
-            <Route path="/register-detail" element={<RegisterDetail />} />
-            <Route
-              path="/register-verification"
-              element={<RegisterVerification />}
-            />
+      <Route path="/register" element={<RoleChoice />} />
+      <Route path="/register/account" element={<RegisterAccount />} />
+      <Route path="/register/provider/last-step" element={<ProviderLastStep />} />
+      <Route path="/register/provider/profile" element={<ProviderProfileSetup />} />
 
-            <Route
-              path="/register/provider"
-              element={<RegisterProfile />}
-            />
-            <Route
-              path="/register/provider/detail"
-              element={<RegisterProviderDetail />}
-            />
+      {/* Client */}
+      <Route
+        path="/client/*"
+        element={
+          <RequireAuth user={user} role={role} allow={["client"]}>
+            <ClientLayout />
+          </RequireAuth>
+        }
+      />
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </>
-        )}
-      </Routes>
-    </BrowserRouter>
+      {/* Provider */}
+      <Route
+        path="/provider/*"
+        element={
+          <RequireAuth user={user} role={role} allow={["provider"]}>
+            <ProviderLayout />
+          </RequireAuth>
+        }
+      />
+
+      {/* Admin */}
+      <Route
+        path="/admin/*"
+        element={
+          <RequireAuth user={user} role={role} allow={["admin"]}>
+            <AdminLayout />
+          </RequireAuth>
+        }
+      />
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
   );
+}
+
+function RoleRedirect({ role }) {
+  if (role === "provider") return <Navigate to="/provider" replace />;
+  if (role === "admin") return <Navigate to="/admin" replace />;
+  return <Navigate to="/client" replace />; // default client
+}
+
+function RequireAuth({ user, role, allow, children }) {
+  if (!user) return <Navigate to="/login" replace />;
+  if (!allow.includes(role)) return <Navigate to="/" replace />;
+  return children;
 }

@@ -99,3 +99,18 @@
 .card-container.flipped {
   transform: rotateY(180deg);
 }
+
+/* Slide up reservas*/
+@keyframes moveUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-moveUp {
+  animation: moveUp 0.4s ease-out;
+}
+
