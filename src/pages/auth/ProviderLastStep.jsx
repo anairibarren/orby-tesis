@@ -10,7 +10,8 @@ export default function ProviderLastStep() {
           Último paso antes de comenzar
         </h2>
         <p className="mt-2 text-sm text-black/60">
-          Para generar confianza, completá tu perfil con foto, descripción y matrícula/certificación.
+          Para generar confianza, completá tu perfil con foto y matrícula/certificación.
+          Si la subís, vas a aparecer como “Verificado”.
         </p>
 
         <div className="mt-8 flex flex-col gap-3">

@@ -1,8 +1,5 @@
 import { supabase } from "./supabase";
 
-/**
- * Lee el perfil del usuario logueado desde la tabla profiles
- */
 export async function getMyProfile(userId) {
   const { data, error } = await supabase
     .from("profiles")
@@ -15,13 +12,14 @@ export async function getMyProfile(userId) {
 }
 
 /**
- * Upsert de perfil (sirve tanto para crear como para actualizar).
- * Recomendado para onboarding.
+ * Actualiza el perfil del usuario logueado.
+ * (No usamos upsert en onboarding para evitar edge cases.)
  */
-export async function upsertMyProfile(profile) {
+export async function updateMyProfile(userId, patch) {
   const { data, error } = await supabase
     .from("profiles")
-    .upsert(profile, { onConflict: "id" })
+    .update(patch)
+    .eq("id", userId)
     .select("*")
     .single();
 

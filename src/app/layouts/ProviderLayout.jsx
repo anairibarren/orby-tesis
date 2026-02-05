@@ -1,3 +1,4 @@
+//src/app/layouts/ProviderLayout.jsx
 import { Routes, Route, Navigate } from "react-router-dom";
 import BottomNav from "../../components/BottomNav";
 
@@ -8,6 +9,10 @@ import ProviderProfile from "../../pages/provider/Profile";
 
 import ServiceForm from "../../pages/provider/ServiceForm";
 import RequireProviderComplete from "../../components/RequireProviderComplete";
+import ProviderAvailability from "../../pages/provider/Availability";
+
+// ✅ NUEVO
+import ProviderNotifications from "../../pages/provider/Notifications";
 
 export default function ProviderLayout() {
   return (
@@ -18,7 +23,12 @@ export default function ProviderLayout() {
         <Route path="agenda" element={<ProviderAgenda />} />
         <Route path="profile" element={<ProviderProfile />} />
 
-        {/* No puede publicar hasta completar perfil*/}
+        {/* ✅ NUEVO */}
+        <Route path="notifications" element={<ProviderNotifications />} />
+
+        {/* ✅ Disponibilidad (antes del wildcard) */}
+        <Route path="availability" element={<ProviderAvailability />} />
+
         <Route
           path="services/new"
           element={
@@ -28,6 +38,16 @@ export default function ProviderLayout() {
           }
         />
 
+        <Route
+          path="services/:id/edit"
+          element={
+            <RequireProviderComplete>
+              <ServiceForm />
+            </RequireProviderComplete>
+          }
+        />
+
+        {/* Wildcard siempre al final */}
         <Route path="*" element={<Navigate to="/provider" replace />} />
       </Routes>
 

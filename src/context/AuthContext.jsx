@@ -46,14 +46,15 @@ export function AuthProvider({ children }) {
     async function loadProfile() {
       if (!user?.id) {
         setProfile(null);
+        setProfileLoading(false);
         return;
       }
+
       setProfileLoading(true);
       try {
         const data = await getMyProfile(user.id);
         if (!cancelled) setProfile(data);
       } catch (e) {
-        // Si todavía no existe el perfil (por RLS o falta de trigger), lo dejamos null
         if (!cancelled) setProfile(null);
       } finally {
         if (!cancelled) setProfileLoading(false);
@@ -66,7 +67,13 @@ export function AuthProvider({ children }) {
     };
   }, [user?.id]);
 
-  const role = profile?.role ?? user?.user_metadata?.role ?? "client";
+  /**
+   * ✅ Fuente de verdad: profiles.role
+   * ✅ Fallback SOLO para evitar el “pantallazo” post-signup:
+   *    si el trigger todavía no creó/cargó profiles, usamos metadata.role
+   * ❌ NUNCA default "client" (porque rompe Google y te saltea RoleChoice)
+   */
+  const role = profile?.role ?? user?.user_metadata?.role ?? null;
 
   const value = useMemo(
     () => ({
@@ -76,7 +83,7 @@ export function AuthProvider({ children }) {
       role,
       profile,
       profileLoading,
-      setProfile, // útil para actualizar después de onboarding
+      setProfile,
     }),
     [loading, session, user, role, profile, profileLoading]
   );

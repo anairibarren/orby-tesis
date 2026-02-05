@@ -25,17 +25,19 @@ export async function logoutUser() {
   return true;
 }
 
+
 export async function loginWithGoogle() {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      // Opcional: si usás Netlify, podés setear tu URL final
-      // redirectTo: window.location.origin,
+      redirectTo: `${window.location.origin}/auth/callback`,
     },
   });
+
   if (error) throw error;
   return data;
 }
+
 
 // Helpers útiles para AuthContext
 export async function getSession() {

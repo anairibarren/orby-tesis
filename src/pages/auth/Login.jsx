@@ -17,12 +17,9 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const { session } = await loginUser(email.trim(), password);
-      const role = session?.user?.user_metadata?.role || "client";
-
-      if (role === "provider") navigate("/provider", { replace: true });
-      else if (role === "admin") navigate("/admin", { replace: true });
-      else navigate("/client", { replace: true });
+      await loginUser(email.trim(), password);
+      // ✅ dejamos que los guards decidan a dónde va según profiles.role
+      navigate("/", { replace: true });
     } catch (err) {
       setErrorMsg(err?.message || "Error al iniciar sesión.");
     } finally {
@@ -32,13 +29,10 @@ export default function Login() {
 
   async function handleGoogle() {
     setErrorMsg("");
-    setLoading(true);
     try {
-      // Esto redirige, no navega dentro de React Router.
-      await loginWithGoogle();
+      await loginWithGoogle(); // redirige
     } catch (err) {
       setErrorMsg(err?.message || "No se pudo iniciar con Google.");
-      setLoading(false);
     }
   }
 
@@ -58,6 +52,7 @@ export default function Login() {
               type="email"
               autoComplete="email"
               required
+              disabled={loading}
             />
           </div>
 
@@ -71,6 +66,7 @@ export default function Login() {
               type="password"
               autoComplete="current-password"
               required
+              disabled={loading}
             />
           </div>
 
@@ -91,8 +87,7 @@ export default function Login() {
           <button
             type="button"
             onClick={handleGoogle}
-            disabled={loading}
-            className="w-full rounded-xl border border-black/10 px-4 py-3 font-medium disabled:opacity-60"
+            className="w-full rounded-xl border border-black/10 px-4 py-3 font-medium"
           >
             Continuar con Google
           </button>
