@@ -114,16 +114,19 @@ function VerifiedIcon({ show }) {
 function statusStyle(status) {
   const s = norm(status);
   const map = {
-    solicitada: "bg-[#FFF5CC] text-[#7A5B00]",
-    cotizada: "bg-[#F1E8FF] text-[#4B2A8A]",
-    aceptada: "bg-[#E9FFF6] text-[#0F6B3D]",
-    agendada: "bg-[#EAF2FF] text-[#1E2F5D]",
-    rechazada: "bg-[#FFE6EA] text-[#9B1C1C]",
-    cancelada: "bg-black/[0.06] text-black/70",
-    completada: "bg-[#E8FFF2] text-[#0F6B3D]",
+    solicitada: "bg-[#FFF5CC] text-[#7A5B00] border border-[#F3E4A5]",
+    cotizada: "bg-[#F1E8FF] text-[#4B2A8A] border border-[#E3D6FF]",
+    aceptada: "bg-[#E9FFF6] text-[#0F6B3D] border border-[#CFF4E3]",
+    agendada: "bg-[#EAF2FF] text-[#1E2F5D] border border-[#CFE0FF]",
+    rechazada: "bg-[#FFE6EA] text-[#9B1C1C] border border-[#FFC9D3]",
+    cancelada: "bg-black/[0.05] text-black/70 border border-black/10",
+    completada: "bg-[#E8FFF2] text-[#0F6B3D] border border-[#CFF4E3]",
   };
-  return map[s] || "bg-black/[0.06] text-black/70";
+  return map[s] || "bg-black/[0.05] text-black/70 border border-black/10";
 }
+
+
+
 
 function StatusBadge({ status }) {
   return (
@@ -708,16 +711,46 @@ export default function Requests() {
                     </div>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between gap-3">
-                    <span className="inline-flex items-center rounded-full px-3 py-1 text-[12px] font-extrabold bg-[#1E2F5D]/[0.08] text-[#1E2F5D]">
-                      {priceText}
+
+                  {/* ✅ Fila fija (2 columnas) para que NUNCA se desalineen */}
+                  <div className="mt-4 grid grid-cols-2 items-center gap-3">
+                    {/* Fecha (izquierda) */}
+                  <span
+                  className="
+                    inline-flex items-center rounded-full
+                    px-2 py-2 text-[12px] font-extrabold
+                    bg-black/[0.04] text-black/60
+                    w-full min-w-0
+                  "
+                  >
+                    {/* Columna fija para el ícono (evita “margen raro” a la derecha) */}
+                    <span className="w-6 grid place-items-center shrink-0">
+                      <IconifyIcon
+                        icon="mdi:calendar-blank-outline"
+                        className="h-4 w-4 text-black/40"
+                      />
                     </span>
 
-                    <span className="inline-flex items-center rounded-full px-3 py-1 text-[12px] font-extrabold bg-black/[0.04] text-black/60">
+                    {/* Texto */}
+                    <span className="whitespace-nowrap">
                       {turno.date}
                       {turno.time ? ` · ${turno.time}` : ""}
                     </span>
+                  </span>
+
+                    {/* Precio (derecha) - sin fondo, pero “armado” en 2 líneas prolijas */}
+                    <div className="justify-self-end text-right">
+                      <p className="text-[11px] font-medium text-black/45 leading-none">
+                        {isQuote ? "Cotización" : "Precio"}
+                      </p>
+                      <p className="mt-2 text-[15px] font-extrabold text-[#3D3D3D] leading-none">
+                        {base != null ? moneyARS(base) : "—"}
+                      </p>
+                    </div>
                   </div>
+
+
+
 
                   {showQuoteDecision && (
                     <div className="mt-3 grid grid-cols-2 gap-2 w-full">

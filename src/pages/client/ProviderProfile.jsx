@@ -688,114 +688,138 @@ export default function ProviderProfile() {
               )}
 
               {tab === "reviews" && (
-                <motion.div
-                  key="tab-reviews"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                  className="grid gap-4"
-                >
-                  {/* ✅ Reseñas más “pro” (layout limpio y consistente) */}
-                  <div className="rounded-[18px] border border-black/10 bg-white p-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="flex items-end gap-3">
-                          <p className="text-[40px] leading-none font-semibold text-[#111827]">{avgLabel}</p>
-                          <div className="pb-1">
-                            <StarsStatic value={reviewsSummary.avg || 0} />
-                            <p className="mt-1 text-[12px] text-black/50">{totalReviews ? `${totalReviews} reseña(s)` : "Sin reseñas"}</p>
-                          </div>
-                        </div>
-                      </div>
+              <motion.div
+                key="tab-reviews"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                className="grid gap-5"
+              >
+                {/* HEADER (igual a referencia) */}
+                <div className="flex items-start justify-between gap-4">
+                  {/* izquierda: número grande + subrayado */}
+                  <div className="shrink-0">
+                    <p className="text-[44px] leading-none font-semibold text-[#111827]">{avgLabel}</p>
+                    <div className="mt-2 h-[3px] w-10 rounded-full bg-[#2A4691]" />
+                  </div>
 
-                      <Pill className="bg-[#FFF7D6] text-[#7A5B00] border border-[#E3B100]/20 shrink-0">
-                        <IconifyIcon icon="solar:star-bold" className="h-4 w-4 text-[#E3B100]" />
-                        {avgLabel}
-                      </Pill>
+                  {/* centro: estrellas + “4.5 145 reseñas” */}
+                  <div className="min-w-0 flex-1">
+                    <div className="mt-1">
+                      <StarsStatic value={reviewsSummary.avg || 0} />
                     </div>
 
-                    <div className="mt-4 grid gap-2">
-                      {[5, 4, 3, 2, 1].map((n) => {
-                        const cnt = reviewsSummary.dist?.[n] || 0;
-                        const pct = totalReviews ? Math.round((cnt / totalReviews) * 100) : 0;
-                        return (
-                          <div key={n} className="flex items-center gap-3">
-                            <span className="w-6 text-[12px] font-semibold text-black/50">{n}</span>
-                            <div className="h-2 flex-1 rounded-full bg-black/10 overflow-hidden">
-                              <div className="h-full bg-[#E3B100]" style={{ width: `${pct}%` }} />
-                            </div>
-                            <span className="w-10 text-right text-[12px] text-black/45">{cnt}</span>
-                          </div>
-                        );
-                      })}
+                    <div className="mt-2 flex items-center gap-2 text-[12px] text-black/55">
+                      <span className="font-medium text-black/60">{avgLabel}</span>
+                      <span className="text-black/25">|</span>
+                      <span>{totalReviews ? `${totalReviews} reseñas` : "Sin reseñas"}</span>
                     </div>
                   </div>
 
-                  <div className="rounded-[18px] border border-black/10 bg-white overflow-hidden">
-                    {reviewsLoading && (
-                      <div className="p-5 animate-pulse">
-                        <div className="h-4 w-44 rounded bg-black/10" />
-                        <div className="mt-3 h-3 w-72 rounded bg-black/10" />
-                        <div className="mt-2 h-3 w-56 rounded bg-black/10" />
-                      </div>
-                    )}
+                  {/* derecha: botón circular (chevron) */}
+                  <button
+                    type="button"
+                    className="h-10 w-10 rounded-full border border-black/10 bg-white shadow-[0_8px_18px_rgba(0,0,0,0.06)] grid place-items-center"
+                    aria-label="Opciones"
+                    title="Opciones"
+                  >
+                    <IconifyIcon icon="solar:alt-arrow-down-linear" className="h-5 w-5 text-black/55" />
+                  </button>
+                </div>
 
-                    {!reviewsLoading && reviews.length === 0 && (
-                      <div className="p-5">
-                        <div className="flex items-center gap-3">
-                          <span className="h-10 w-10 rounded-full bg-black/[0.035] grid place-items-center border border-black/10">
-                            <IconifyIcon icon="solar:chat-round-line-linear" className="h-5 w-5 text-black/55" />
-                          </span>
-                          <div>
-                            <p className="text-[14px] font-semibold text-[#111827]">Todavía no hay reseñas</p>
-                            <p className="mt-1 text-[12px] text-black/50">Cuando complete turnos, van a aparecer automáticamente.</p>
-                          </div>
+                {/* BARRAS (igual a referencia) */}
+                <div className="grid gap-3">
+                  {[5, 4, 3, 2, 1].map((n) => {
+                    const cnt = reviewsSummary.dist?.[n] || 0;
+                    const pct = totalReviews ? (cnt / totalReviews) * 100 : 0;
+
+                    return (
+                      <div key={n} className="flex items-center gap-4">
+                        {/* barra */}
+                        <div className="h-[8px] flex-1 rounded-full bg-black/10 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-[#E3B100]"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+
+                        {/* label derecha: “5.0 ★” */}
+                        <div className="w-14 flex items-center justify-end gap-1 text-[12px] text-black/55">
+                          <span className="tabular-nums">{Number(n).toFixed(1)}</span>
+                          <IconifyIcon icon="solar:star-bold" className="h-4 w-4 text-[#E3B100]" />
                         </div>
                       </div>
-                    )}
+                    );
+                  })}
+                </div>
 
-                    {!reviewsLoading &&
-                      reviews.map((r, idx) => {
-                        const clientName = r?.client?.full_name || "Cliente";
-                        const clientAvatar = r?.client?.avatar_url || null;
-                        const rating = Number(r?.rating);
-                        const score = Number.isFinite(rating) ? Math.max(1, Math.min(5, Math.round(rating))) : null;
-                        const comment = String(r?.comment || "").trim();
+                {/* (opcional) Lista de reseñas como venías: si querés la dejamos o la sacamos.
+                    La dejo tal cual tu lógica previa para no tocar contenido: */}
+                <div className="grid gap-3">
+                  {reviewsLoading && (
+                    <div className="rounded-[18px] border border-black/10 bg-white p-5 animate-pulse">
+                      <div className="h-4 w-44 rounded bg-black/10" />
+                      <div className="mt-3 h-3 w-72 rounded bg-black/10" />
+                      <div className="mt-2 h-3 w-56 rounded bg-black/10" />
+                    </div>
+                  )}
 
-                        return (
-                          <div key={r.id} className="p-5">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div className="h-11 w-11 rounded-full overflow-hidden border border-black/10 bg-black/[0.03] shrink-0 grid place-items-center">
-                                  {clientAvatar ? (
-                                    <img src={clientAvatar} alt={clientName} className="h-full w-full object-cover" />
-                                  ) : (
-                                    <span className="text-[12px] font-semibold text-[#1E2F5D]">{initials(clientName)}</span>
-                                  )}
-                                </div>
+                  {!reviewsLoading && reviews.length === 0 && (
+                    <div className="rounded-[18px] border border-black/10 bg-white p-5">
+                      <p className="text-[14px] font-semibold text-[#111827]">Todavía no hay reseñas</p>
+                      <p className="mt-1 text-[12px] text-black/50">
+                        Cuando complete turnos, van a aparecer automáticamente.
+                      </p>
+                    </div>
+                  )}
 
-                                <div className="min-w-0">
-                                  <p className="text-[14px] font-semibold text-[#111827] truncate">{clientName}</p>
-                                  <p className="text-[12px] text-black/45">{formatDateShort(r?.created_at)}</p>
-                                </div>
+                  {!reviewsLoading &&
+                    reviews.map((r) => {
+                      const clientName = r?.client?.full_name || "Cliente";
+                      const clientAvatar = r?.client?.avatar_url || null;
+                      const rating = Number(r?.rating);
+                      const score = Number.isFinite(rating) ? Math.max(1, Math.min(5, Math.round(rating))) : null;
+                      const comment = String(r?.comment || "").trim();
+
+                      return (
+                        <div key={r.id} className="rounded-[18px] border border-black/10 bg-white p-5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="h-11 w-11 rounded-full overflow-hidden border border-black/10 bg-black/[0.03] shrink-0 grid place-items-center">
+                                {clientAvatar ? (
+                                  <img src={clientAvatar} alt={clientName} className="h-full w-full object-cover" />
+                                ) : (
+                                  <span className="text-[12px] font-semibold text-[#1E2F5D]">{initials(clientName)}</span>
+                                )}
                               </div>
 
-                              <Pill className="bg-[#FFF7D6] text-[#7A5B00] border border-[#E3B100]/20 shrink-0">
-                                <IconifyIcon icon="solar:star-bold" className="h-4 w-4 text-[#E3B100]" />
-                                {score ?? "—"}
-                              </Pill>
+                              <div className="min-w-0">
+                                <p className="text-[14px] font-semibold text-[#111827] truncate">{clientName}</p>
+                                <p className="text-[12px] text-black/45">{formatDateShort(r?.created_at)}</p>
+                              </div>
                             </div>
 
-                            {comment ? <p className="mt-3 text-[13px] text-black/60 leading-relaxed whitespace-pre-line">{comment}</p> : null}
-
-                            {idx !== reviews.length - 1 ? <div className="mt-5 h-px bg-black/10" /> : null}
+                            <div className="inline-flex items-center gap-1 text-[12px] text-black/55">
+                              <span className="font-medium">{score ?? "—"}</span>
+                              <IconifyIcon icon="solar:star-bold" className="h-4 w-4 text-[#E3B100]" />
+                            </div>
                           </div>
-                        );
-                      })}
-                  </div>
-                </motion.div>
-              )}
+
+                          {comment ? (
+                            <p className="mt-3 text-[13px] text-black/60 leading-relaxed whitespace-pre-line">
+                              {comment}
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                </div>
+              </motion.div>
+            )}
+
+
+
             </AnimatePresence>
           </div>
         </Card>

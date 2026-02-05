@@ -29,7 +29,7 @@ function formatTurno(preferred_datetime) {
   if (!preferred_datetime) return { date: "—", time: "", ts: NaN };
   const d = new Date(preferred_datetime);
   const date = d.toLocaleDateString("es-AR", { weekday: "short", day: "2-digit", month: "short" });
-  const time = d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+  const time = d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
   return { date, time, ts: d.getTime() };
 }
 function formatMoneyARS(n) {
@@ -74,11 +74,6 @@ function getClientName(r) {
   return cleaned[0] || candidates[0] || "Sin nombre";
 }
 
-function truncateText(v, max = 110) {
-  const s = String(v ?? "").trim();
-  if (!s) return "";
-  return s.length > max ? `${s.slice(0, max)}…` : s;
-}
 function formatWhen(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -91,23 +86,24 @@ function formatWhen(iso) {
   });
 }
 
-/** ✅ NUEVO: mostrar SOLO descripción (sin bloque de ubicación/barrio/dirección) */
-function cleanDescriptionForCard(desc) {
+// ✅ limpia descripción para card: solo texto, sin bloque de ubicación
+function cleanDescForCard(desc) {
   const raw = String(desc || "").trim();
   if (!raw) return "";
-  const marker = "📍 Ubicación:";
-  let base = raw;
-  const idx = raw.indexOf(marker);
-  if (idx !== -1) base = raw.slice(0, idx).trim();
 
-  // además filtramos líneas tipo "Ubicación:", "Barrio:", "Dirección:" si vinieran sueltas
+  // corta desde "📍 Ubicación:" si existe
+  const marker = "📍 Ubicación:";
+  const idx = raw.indexOf(marker);
+  const base = idx === -1 ? raw : raw.slice(0, idx).trim();
+
+  // por si igualmente vienen líneas sueltas
   const lines = base
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean)
     .filter((l) => {
-      const x = norm(l);
-      return !(x.startsWith("ubicación:") || x.startsWith("ubicacion:") || x.startsWith("barrio:") || x.startsWith("dirección:") || x.startsWith("direccion:"));
+      const low = l.toLowerCase();
+      return !low.startsWith("ubicación:") && !low.startsWith("barrio:") && !low.startsWith("direccion:") && !low.startsWith("dirección:");
     });
 
   return lines.join("\n").trim();
@@ -160,16 +156,19 @@ function IconButton({ onClick, title, children, className = "", disabled = false
 function statusStyle(status) {
   const s = norm(status);
   const map = {
-    solicitada: "bg-[#FFF5CC] text-[#7A5B00]",
-    cotizada: "bg-[#F1E8FF] text-[#4B2A8A]",
-    aceptada: "bg-[#E9FFF6] text-[#0F6B3D]",
-    agendada: "bg-[#EAF2FF] text-[#1E2F5D]",
-    rechazada: "bg-[#FFE6EA] text-[#9B1C1C]",
-    cancelada: "bg-black/[0.06] text-black/70",
-    completada: "bg-[#E8FFF2] text-[#0F6B3D]",
+    solicitada: "bg-[#FFF5CC] text-[#7A5B00] border border-[#F3E4A5]",
+    cotizada: "bg-[#F1E8FF] text-[#4B2A8A] border border-[#E3D6FF]",
+    aceptada: "bg-[#E9FFF6] text-[#0F6B3D] border border-[#CFF4E3]",
+    agendada: "bg-[#EAF2FF] text-[#1E2F5D] border border-[#CFE0FF]",
+    rechazada: "bg-[#FFE6EA] text-[#9B1C1C] border border-[#FFC9D3]",
+    cancelada: "bg-black/[0.05] text-black/70 border border-black/10",
+    completada: "bg-[#E8FFF2] text-[#0F6B3D] border border-[#CFF4E3]",
   };
-  return map[s] || "bg-black/[0.06] text-black/70";
+  return map[s] || "bg-black/[0.05] text-black/70 border border-black/10";
 }
+
+
+
 function StatusBadge({ status }) {
   return (
     <span className={["inline-flex items-center rounded-full px-3 py-1 text-[12px] font-semibold capitalize", statusStyle(status)].join(" ")}>
@@ -369,16 +368,15 @@ function ConfirmDeleteSheet({ open, title, desc, onClose, onConfirm, busy }) {
 }
 
 /* ---------------- permissions ---------------- */
-function canReject(req) {
-  const s = norm(req?.status);
-  // ✅ NO mostrar rechazar en completada
+function canRejectWithStatus(status) {
+  const s = norm(status);
   return s !== STATUS.AGENDADA && s !== STATUS.CANCELADA && s !== STATUS.RECHAZADA && s !== STATUS.COMPLETADA;
 }
-function canCancelScheduled(req) {
-  return norm(req?.status) === STATUS.AGENDADA;
+function canCancelScheduledWithStatus(status) {
+  return norm(status) === STATUS.AGENDADA;
 }
-function canDelete(req) {
-  const s = norm(req?.status);
+function canDeleteWithStatus(status) {
+  const s = norm(status);
   return s === STATUS.CANCELADA || s === STATUS.RECHAZADA;
 }
 
@@ -409,8 +407,8 @@ export default function Requests() {
 
   const [clientNameMap, setClientNameMap] = useState({}); // clientId -> full_name
 
-  // ✅ FIX: evita el “flash” del botón Confirmar turno (optimista hasta que llegue DB)
-  const [optimisticStatus, setOptimisticStatus] = useState({}); // { [requestId]: status }
+  // ✅ FIX: evita que reaparezca "Confirmar turno" por refresh/realtime con estado viejo
+  const [optimisticStatus, setOptimisticStatus] = useState({}); // requestId -> status
 
   const selectedName = useMemo(() => {
     return selectedReq?.catalog?.name || selectedReq?.provider_service?.service_catalog?.name || "este servicio";
@@ -431,21 +429,20 @@ export default function Requests() {
 
     try {
       const data = await listIncomingRequests(user.id);
+      setItems(data || []);
 
-      // ✅ si ya llegó el status real, limpiamos el optimista de esos ids
+      // ✅ limpia optimistic si ya vino el estado final desde DB
       setOptimisticStatus((prev) => {
         const next = { ...prev };
         (data || []).forEach((r) => {
           const id = r?.id;
           if (!id) return;
-          const real = norm(r?.status);
-          const opt = norm(next[id]);
-          if (opt && real === opt) delete next[id];
+          const db = norm(r?.status);
+          const opt = norm(prev[id]);
+          if (opt && opt === db) delete next[id];
         });
         return next;
       });
-
-      setItems(data || []);
     } catch (e) {
       const msg = e?.message || "Error cargando solicitudes";
       setErr(msg);
@@ -557,14 +554,14 @@ export default function Requests() {
     return { title: "Todavía no te llegaron solicitudes", desc: "Cuando un cliente te escriba, vas a poder cotizar o agendar desde acá." };
   }, [filter]);
 
-  function canQuote(req) {
+  function canQuote(req, effectiveStatus) {
     const pricingType = getPricingType(req);
-    return pricingType === "B" && norm(req?.status) === STATUS.SOLICITADA;
+    return pricingType === "B" && norm(effectiveStatus) === STATUS.SOLICITADA;
   }
 
-  function canSchedule(req) {
+  function canSchedule(req, effectiveStatus) {
     if (!req) return false;
-    const s = norm(req.status);
+    const s = norm(effectiveStatus);
     if (s === STATUS.AGENDADA) return false;
     if (!req.preferred_datetime) return false;
 
@@ -587,8 +584,8 @@ export default function Requests() {
       try {
         const serviceName = req?.catalog?.name || req?.provider_service?.service_catalog?.name || "un servicio";
         await safeCreateNotification({
-          user_id: req.client_id, // destinatario
-          actor_id: user?.id || null, // quien hace la acción
+          user_id: req.client_id,
+          actor_id: user?.id || null,
           type: "quote_new",
           title: "Nueva cotización",
           body: `${serviceName}: ${formatMoneyARS(num) || ""}`.trim(),
@@ -600,9 +597,7 @@ export default function Requests() {
           },
           is_read: false,
         });
-      } catch {
-        // no rompe
-      }
+      } catch {}
 
       toast.success("Cotización enviada", "El cliente ya puede aceptarla o rechazarla.");
       setItems((prev) => prev.map((x) => (x.id === req.id ? { ...x, status: STATUS.COTIZADA, quote_amount: num } : x)));
@@ -632,9 +627,6 @@ export default function Requests() {
 
       setBusyId(req.id);
 
-      // ✅ optimista: escondemos el botón inmediatamente (evita el flash feo)
-      setOptimisticStatus((m) => ({ ...m, [req.id]: STATUS.AGENDADA }));
-
       const durationMin = await getDurationMinutesForRequest(req);
       const startISO = new Date(req.preferred_datetime).toISOString();
       const endISO = addMinutesISO(startISO, durationMin);
@@ -649,6 +641,9 @@ export default function Requests() {
 
       await confirmAppointmentByRequestId(req.id);
       await updateRequest(req.id, { status: STATUS.AGENDADA });
+
+      // ✅ evita flicker del botón por refresh con dato viejo
+      setOptimisticStatus((m) => ({ ...m, [req.id]: STATUS.AGENDADA }));
 
       // ✅ NOTI al CLIENTE: turno confirmado
       try {
@@ -674,13 +669,6 @@ export default function Requests() {
       setItems((prev) => prev.map((x) => (x.id === req.id ? { ...x, status: STATUS.AGENDADA } : x)));
       refresh({ silent: true });
     } catch (e) {
-      // si falló, revertimos el optimista para que no “mienta”
-      setOptimisticStatus((m) => {
-        const next = { ...m };
-        delete next[req?.id];
-        return next;
-      });
-
       toast.error("Error", e?.message || "No se pudo agendar.");
       refresh({ silent: true });
     } finally {
@@ -711,7 +699,8 @@ export default function Requests() {
 
       // ✅ NOTI al CLIENTE: solicitud rechazada
       try {
-        const serviceName = selectedReq?.catalog?.name || selectedReq?.provider_service?.service_catalog?.name || "un servicio";
+        const serviceName =
+          selectedReq?.catalog?.name || selectedReq?.provider_service?.service_catalog?.name || "un servicio";
         await safeCreateNotification({
           user_id: selectedReq.client_id,
           actor_id: user?.id || null,
@@ -752,7 +741,7 @@ export default function Requests() {
 
   async function confirmCancel() {
     if (!cancelReq?.id) return;
-    if (!canCancelScheduled(cancelReq)) return;
+    if (!canCancelScheduledWithStatus(cancelReq?.status)) return;
 
     const reason = String(cancelReason || "").trim();
     if (!reason) return toast.warning("Motivo obligatorio", "Escribí un motivo para cancelar el turno.");
@@ -789,7 +778,7 @@ export default function Requests() {
   }
   async function confirmDelete() {
     if (!deleteReq?.id) return;
-    if (!canDelete(deleteReq)) return;
+    if (!canDeleteWithStatus(deleteReq?.status)) return;
 
     const id = deleteReq.id;
 
@@ -816,8 +805,8 @@ export default function Requests() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
-      {/* ✅ centrado real + márgenes iguales */}
-      <div className="w-full px-4 pt-[40px] pb-6 box-border">
+      {/* ✅ centra todo el contenido para que no quede “corrida” la card */}
+      <div className="w-full px-6 pt-[40px] pb-6 box-border">
         <div className="mx-auto w-full max-w-[520px]">
           {/* Top */}
           <div className="flex items-start justify-between gap-3">
@@ -834,7 +823,7 @@ export default function Requests() {
           </div>
 
           {/* Chips */}
-          <div className="mt-6 -mx-4 px-4 overflow-x-auto hide-scrollbar pb-1">
+          <div className="mt-6 -mx-6 px-6 overflow-x-auto hide-scrollbar pb-1">
             <style>{`
               .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
               .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -860,8 +849,7 @@ export default function Requests() {
             {!loading &&
               !err &&
               filteredItems.map((r) => {
-                const optStatus = optimisticStatus[r.id];
-                const effectiveStatus = optStatus || r.status;
+                const effectiveStatus = optimisticStatus[r.id] || r.status;
 
                 const name = r?.catalog?.name || r?.provider_service?.service_catalog?.name || "Servicio";
 
@@ -875,27 +863,22 @@ export default function Requests() {
 
                 const base = isQuote ? (r?.quote_amount != null ? Number(r.quote_amount) : null) : fixedPrice != null ? Number(fixedPrice) : null;
 
-                const priceText = isQuote
-                  ? base != null
-                    ? `Cotización: ${formatMoneyARS(base)}`
-                    : "Cotización: pendiente"
-                  : base != null
-                  ? `Precio: ${formatMoneyARS(base)}`
-                  : "Precio: —";
+                // ✅ si es cotización y todavía NO hay monto, NO mostramos chip de “pendiente”
+                const priceText = base != null ? formatMoneyARS(base) : null; 
 
                 const turno = formatTurno(r.preferred_datetime);
 
-                // ✅ usar status efectivo para evitar flashes
-                const rForPerms = optStatus ? { ...r, status: optStatus } : r;
-
-                const canScheduleThis = canSchedule(rForPerms);
-                const canQuoteThis = canQuote(rForPerms);
+                const canScheduleThis = canSchedule(r, effectiveStatus);
+                const canQuoteThis = canQuote(r, effectiveStatus);
 
                 const quote = quoteMap[r.id] ?? "";
                 const isBusy = busyId === r.id;
 
-                const descClean = cleanDescriptionForCard(r.description);
-                const descToShow = truncateText(descClean, 130);
+                const cleanedDesc = cleanDescForCard(r?.description);
+
+                const showCancel = canCancelScheduledWithStatus(effectiveStatus);
+                const showReject = canRejectWithStatus(effectiveStatus); // ✅ ya NO incluye completada
+                const showDelete = canDeleteWithStatus(effectiveStatus);
 
                 return (
                   <div
@@ -913,11 +896,9 @@ export default function Requests() {
                       <div className="min-w-0">
                         <p className="text-[15px] font-extrabold text-[#3D3D3D] leading-snug line-clamp-2">{name}</p>
 
+                        {/* ✅ sin chip “Cliente”, solo nombre */}
                         <div className="mt-2 flex items-center gap-2 min-w-0">
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] px-3 py-1 text-[12px] font-extrabold text-black/60 shrink-0">
-                            <IconifyIcon icon="mdi:account-outline" className="h-4 w-4 text-black/45" />
-                            Cliente
-                          </span>
+                          <IconifyIcon icon="mdi:account-outline" className="h-4 w-4 text-black/35 shrink-0" />
                           <p className="text-[12px] font-semibold text-black/70 truncate">{clientName}</p>
                         </div>
                       </div>
@@ -925,7 +906,7 @@ export default function Requests() {
                       <div className="shrink-0 flex items-center gap-2">
                         <StatusBadge status={effectiveStatus} />
 
-                        {canCancelScheduled(rForPerms) && (
+                        {showCancel && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -947,7 +928,7 @@ export default function Requests() {
                         )}
 
                         {/* ✅ NO mostrar rechazar en completada */}
-                        {canReject(rForPerms) && (
+                        {showReject && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -966,7 +947,7 @@ export default function Requests() {
                           </button>
                         )}
 
-                        {canDelete(rForPerms) && (
+                        {showDelete && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -987,20 +968,43 @@ export default function Requests() {
                       </div>
                     </div>
 
-                    {/* ✅ Solo descripción (sin Ubicación/Barrio/Dirección) */}
-                    {descToShow ? <p className="mt-4 text-[13px] text-black/55 leading-snug whitespace-pre-line line-clamp-2">{descToShow}</p> : null}
+                    {/* ✅ SOLO descripción limpia (sin ubicación/barrio/dirección) */}
+                    {cleanedDesc ? <p className="mt-3 text-[13px] text-black/55 line-clamp-2 whitespace-pre-line">{cleanedDesc}</p> : null}
 
-                    {/* ✅ Chips ABAJO de la descripción + SOLO cambian de lugar (fecha primero, precio segundo) */}
-                    {/* Bottom pills */}
-                    <div className="mt-6 flex items-center justify-between gap-3">
-                      <span className="inline-flex items-center rounded-full px-3 py-1 text-[12px] font-extrabold bg-black/[0.04] text-black/60">
-                        {turno.date}
-                        {turno.time ? ` · ${turno.time}` : ""}
+                    {/* ✅ más espacio entre descripción y chips + chips abajo */}
+                    {/* ✅ Fila fija (2 columnas) para que NUNCA se desalineen */}
+                    <div className="mt-5 grid grid-cols-2 items-center gap-3">
+                      {/* Fecha (izquierda) */}
+                      <span
+                        className="
+                          inline-flex items-center rounded-full
+                          px-2 py-2 text-[12px] font-extrabold
+                          bg-black/[0.04] text-black/60
+                          w-full min-w-0
+                          mt-3
+                        "
+                      >
+                        {/* Columna fija para el ícono (margen visual parejo) */}
+                        <span className="w-6 grid place-items-center shrink-0">
+                          <IconifyIcon icon="mdi:calendar-blank-outline" className="h-4 w-4 text-black/40" />
+                        </span>
+
+                        {/* Texto */}
+                        <span className="whitespace-nowrap">
+                          {turno.date}
+                          {turno.time ? ` · ${turno.time}` : ""}
+                        </span>
                       </span>
 
-                      <span className="inline-flex items-center rounded-full px-3 py-1 text-[12px] font-extrabold bg-[#1E2F5D]/[0.08] text-[#1E2F5D]">
-                        {priceText}
-                      </span>
+                      {/* Precio (derecha) - sin fondo, 2 líneas prolijas */}
+                      <div className="justify-self-end text-right">
+                        <p className="mr-1 text-[11px] font-medium text-black/45 leading-none">
+                          {isQuote ? "Cotización" : "Precio"}
+                        </p>
+                        <p className="mt-2 mr-1 text-[15px] font-extrabold text-[#3D3D3D] leading-none">
+                          {base != null ? formatMoneyARS(base) : "—"}
+                        </p>
+                      </div>
                     </div>
 
 
@@ -1022,34 +1026,23 @@ export default function Requests() {
                         </button>
                       )}
 
-                      {/* ✅ Enviar cotización: más visible / con prioridad */}
+                      {/* ✅ cotización con mejor jerarquía pero manteniendo el estilo “lindo” */}
                       {canQuoteThis && (
-                      <div
-                        className="relative overflow-hidden rounded-[22px] border border-black/10 bg-white p-4 shadow-[0_12px_26px_rgba(0,0,0,0.08)]"
-                        onClick={(e) => e.stopPropagation()}
-                        role="presentation"
-                      >
-                        <div className="pointer-events-none absolute -top-20 -right-20 h-48 w-48 rounded-full bg-[#1E2F5D]/10 blur-2xl" />
-                        <div className="pointer-events-none absolute -bottom-24 -left-24 h-52 w-52 rounded-full bg-[#CFDE87]/25 blur-2xl" />
-
-                        <div className="relative flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-[15px] font-extrabold text-[#1E2F5D]">Cotización</p>
-                            <p className="mt-1 text-[12px] text-black/55">Ingresá el monto y enviásela al cliente.</p>
+                        <div
+                          className="rounded-[18px] bg-[#1E2F5D]/[0.05] border border-[#1E2F5D]/15 p-4"
+                          onClick={(e) => e.stopPropagation()}
+                          role="presentation"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-[13px] font-extrabold text-[#1E2F5D]">Enviar cotización</p>
+                            <span className="text-[11px] font-semibold text-black/45">Pendiente</span>
                           </div>
 
-                          <span className="h-11 w-11 rounded-full bg-[#1E2F5D]/[0.08] grid place-items-center border border-[#1E2F5D]/15 shrink-0">
-                            <IconifyIcon icon="mdi:currency-usd" className="h-5 w-5 text-[#1E2F5D]" />
-                          </span>
-                        </div>
-
-                        <div className="relative mt-4 rounded-[18px] border border-black/10 bg-[#F7F7F7] p-3">
-                          <div className="flex items-center gap-2">
+                          <div className="mt-3 flex gap-2">
                             <div className="flex-1 relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-black/40 text-[14px] font-extrabold">$</span>
-
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-black/35 text-sm">$</span>
                               <input
-                                className="w-full h-[50px] rounded-full bg-white border border-black/10 px-4 pl-7 text-[15px] font-extrabold outline-none text-[#3D3D3D] placeholder:text-black/30 shadow-[0_6px_18px_rgba(0,0,0,0.08)]"
+                                className="w-full h-11 rounded-full bg-white border border-black/10 px-4 pl-7 text-[13px] font-semibold outline-none text-[#3D3D3D] placeholder:text-black/30"
                                 type="number"
                                 min="1"
                                 inputMode="numeric"
@@ -1065,22 +1058,17 @@ export default function Requests() {
                               onClick={() => sendQuote(r)}
                               disabled={isBusy}
                               className={[
-                                "h-[50px] px-6 rounded-full text-white text-[13px] font-extrabold shadow-[0_14px_30px_rgba(30,47,93,0.22)] active:scale-[0.98] transition",
-                                isBusy ? "bg-[#1E2F5D]/60" : "bg-[#1E2F5D] hover:brightness-[1.03]",
+                                "h-11 px-5 rounded-full text-white text-[12px] font-extrabold shadow-[0_10px_22px_rgba(30,47,93,0.18)] active:scale-[0.98] transition",
+                                isBusy ? "bg-[#1E2F5D]/60" : "bg-[#1E2F5D]",
                               ].join(" ")}
                             >
-                              {isBusy ? "Enviando..." : "Enviar"}
+                              Enviar
                             </button>
                           </div>
 
-                          <div className="mt-3 flex items-center gap-2 text-[11px] text-black/45">
-                            <IconifyIcon icon="mdi:information-outline" className="h-4 w-4 text-black/40" />
-                            El cliente podrá aceptarla o rechazarla.
-                          </div>
+                          <p className="mt-2 text-[11px] text-black/45">El cliente podrá aceptarla o rechazarla.</p>
                         </div>
-                      </div>
-                    )}
-
+                      )}
                     </div>
                   </div>
                 );
@@ -1092,7 +1080,7 @@ export default function Requests() {
       {/* MODAL RECHAZAR */}
       {rejectOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6">
-          <button type="button" className="absolute inset-0 bg-black/50" onClick={closeReject} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/50" onClick={() => { setRejectOpen(false); setSelectedReq(null); }} aria-label="Cerrar" />
 
           <div className="relative w-full max-w-lg rounded-[22px] bg-white shadow-2xl p-6 border border-black/10">
             <h3 className="text-[18px] font-extrabold text-[#3D3D3D]">Rechazar solicitud</h3>
@@ -1106,7 +1094,7 @@ export default function Requests() {
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={closeReject}
+                onClick={() => { setRejectOpen(false); setSelectedReq(null); }}
                 className="h-11 rounded-full bg-white border border-black/10 px-5 text-[13px] font-extrabold text-[#3D3D3D] active:scale-[0.98] transition"
               >
                 Cancelar
