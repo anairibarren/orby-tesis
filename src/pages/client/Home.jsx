@@ -291,68 +291,68 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
- return (
-  <motion.div
-    className="min-h-[100dvh] bg-[#1E2F5D] overflow-x-hidden"
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
-  >
-    <style>{`
-      .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
-      .hide-scrollbar::-webkit-scrollbar { display: none; }
-      .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    `}</style>
-
-    {/* HEADER AZUL */}
-    <div
-      className="px-6 pt-[max(16px,env(safe-area-inset-top))] pb-6 rounded-b-[34px] relative overflow-hidden"
-      style={{
-        backgroundColor: "#1E2F5D",
-        backgroundImage: `url(${patronBg})`,
-        backgroundRepeat: "no-repeat",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
+  return (
+    <motion.div
+      className="min-h-[100dvh] bg-[#F5F5F5] px-6 pt-[40px] pb-[calc(24px+env(safe-area-inset-bottom)+90px)]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="pt-1">
-          <p className="text-[13px] text-white/70">Hola,</p>
-          <h1 className="mt-1 text-[28px] font-extrabold text-white leading-tight">{firstName}</h1>
-          <p className="mt-1 text-[13px] font-medium text-white/70">Te damos la bienvenida a orby</p>
+      <style>{`
+        .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+      `}</style>
+
+      {/* Header + Search (mock) */}
+      <div
+          className="-mx-6 -mt-[40px] px-6 pt-[max(40px,env(safe-area-inset-top))] pb-6 rounded-b-[34px] relative overflow-hidden"
+          style={{
+            backgroundColor: "#1E2F5D",
+            backgroundImage: `url(${patronBg})`,
+            backgroundRepeat: "no-repeat",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
+        <div className="flex items-start justify-between gap-4">
+          <div className="pt-1">
+            <p className="text-[13px] text-white/70">Hola,</p>
+            <h1 className="mt-1 text-[28px] font-extrabold text-white leading-tight">{firstName}</h1>
+            <p className="mt-1 text-[13px] font-medium text-white/70">Te damos la bienvenida a orby</p>
+          </div>
+
+          <button
+            type="button"
+            className="relative h-14 w-14 mt-[26px] rounded-full bg-transparent grid place-items-center"
+            style={{ background: "rgba(154, 200, 249, 0.07)" }} // más sutil
+            aria-label="Notificaciones"
+            title="Notificaciones"
+            onClick={() => nav("/client/notifications")}
+          >
+            <BellIcon className="h-6 w-6 text-white" />
+
+            {unread > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[20px] h-[20px] px-1 rounded-full bg-white text-[#1E2F5D] text-[10px] font-extrabold grid place-items-center shadow">
+                {unread > 99 ? "99+" : unread}
+              </span>
+            )}
+          </button>
         </div>
 
-        <button
-          type="button"
-          className="relative h-14 w-14 mt-[26px] rounded-full bg-transparent grid place-items-center"
-          style={{ background: "rgba(154, 200, 249, 0.07)" }}
-          aria-label="Notificaciones"
-          title="Notificaciones"
-          onClick={() => nav("/client/notifications")}
-        >
-          <BellIcon className="h-6 w-6 text-white" />
-          {unread > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[20px] h-[20px] px-1 rounded-full bg-white text-[#1E2F5D] text-[10px] font-extrabold grid place-items-center shadow">
-              {unread > 99 ? "99+" : unread}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* Search mock */}
-      <div className="mt-5">
-        <div
-          onClick={() => nav("/client/search")}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === "Enter" && nav("/client/search")}
-          className="w-full flex items-center gap-2 rounded-full bg-white px-5 py-3.5 shadow-[0_14px_28px_rgba(0,0,0,0.16)] cursor-text select-none"
-        >
-          <IconifyIcon icon="mdi:magnify" className="h-5 w-5 text-black/35 shrink-0" />
-          <span className="text-[13px] text-black/35">Buscar servicio o prestador</span>
+        <div className="mt-5">
+          <div
+            onClick={() => nav("/client/search")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === "Enter" && nav("/client/search")}
+            className="w-full flex items-center gap-2 rounded-full bg-white px-5 py-3.5 shadow-[0_14px_28px_rgba(0,0,0,0.16)] cursor-text select-none"
+          >
+            <IconifyIcon icon="mdi:magnify" className="h-5 w-5 text-black/35 shrink-0" />
+            <span className="text-[13px] text-black/35">Buscar servicio o prestador</span>
+          </div>
         </div>
       </div>
-    </div>
 
       {/* Categorías */}
       <div className="mt-7 relative z-10">
