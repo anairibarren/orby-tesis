@@ -17,6 +17,15 @@ html{
   -webkit-text-size-adjust: 100%;
 }
 
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #1E2F5D; /* azul Orby: rellena status bar en iPhone */
+}
+
 /* inicio de sesion */
 @keyframes slideUp {
   0% {

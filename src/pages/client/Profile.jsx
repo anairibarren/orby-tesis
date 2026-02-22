@@ -621,20 +621,28 @@ export default function Profile() {
             />
           </div>
 
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className={[
-                "w-full rounded-full py-3 font-semibold transition active:scale-[0.99] box-border",
-                "bg-white border border-black/10 text-[#3D3D3D]",
-                "shadow-[0_8px_18px_rgba(0,0,0,0.06)]",
-                loggingOut ? "opacity-60" : "",
-              ].join(" ")}
-            >
-              {loggingOut ? "Cerrando sesión…" : "Cerrar sesión"}
-            </button>
+          <div className="mt-4 overflow-visible pb-[max(18px,env(safe-area-inset-bottom))]">
+            {/* ✅ aire real abajo para que NO se corte la sombra al final del scroll */}
+            <div className="pt-2 pb-3 overflow-visible">
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className={[
+                  "w-full rounded-full py-3 font-semibold transition active:scale-[0.99] box-border",
+                  "bg-white border border-black/10 text-[#3D3D3D]",
+                  "shadow-[0_10px_24px_rgba(0,0,0,0.08)]",
+                  "inline-flex items-center justify-center gap-2",
+                  loggingOut ? "opacity-60" : "",
+                ].join(" ")}
+              >
+                <IconifyIcon icon="mdi:logout" className="h-5 w-5 text-black/45" />
+                {loggingOut ? "Cerrando sesión…" : "Cerrar sesión"}
+              </button>
+            </div>
+
+            {/* ✅ separador extra (garantiza que el scroll nunca “corte” la sombra) */}
+            <div className="h-6" />
           </div>
         </div>
       </div>

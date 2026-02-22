@@ -472,6 +472,11 @@ function EditProfileModal({
   const [neighborhood, setNeighborhood] = useState("");
   const [about, setAbout] = useState("");
 
+  // ✅ avatar (foto de perfil)
+  const avatarRef = useRef(null);
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
   const [certUploading, setCertUploading] = useState(false);
   const [certRemoving, setCertRemoving] = useState(false);
 
@@ -486,18 +491,69 @@ function EditProfileModal({
     setFullName(initial?.full_name || "");
     setNeighborhood(initial?.neighborhood || "");
     setAbout(initial?.about || initial?.bio || initial?.description || "");
+    setAvatarUrl(initial?.avatar_url || "");
   }, [open, initial]);
 
   const neighborhoodValid = useMemo(() => isAllowedNeighborhood(neighborhood), [neighborhood]);
 
-  const canSave = useMemo(() => {
-    return fullName.trim().length >= 2 && neighborhoodValid && !busy;
-  }, [fullName, neighborhoodValid, busy]);
+const canSave = useMemo(() => {
+  const hasAvatar = !!String(avatarUrl || "").trim();
+  return fullName.trim().length >= 2 && neighborhoodValid && hasAvatar && !busy && !avatarUploading;
+}, [fullName, neighborhoodValid, avatarUrl, busy, avatarUploading]);
 
   function openViewer(url) {
     if (!norm(url)) return;
     setViewerUrl(url);
     setViewerOpen(true);
+  }
+
+  async function uploadAvatar(file) {
+  if (!file) return;
+
+  const uid = initial?.id;
+  if (!uid) {
+    toast?.error("Error", "No hay usuario para subir la foto.");
+    return;
+  }
+
+  setAvatarUploading(true);
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${uid}/avatar_${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`;
+
+      const up = await supabase.storage.from("avatars").upload(path, file, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: file.type || undefined,
+      });
+
+      if (up.error) {
+        if (String(up.error?.message || "").toLowerCase().includes("bucket")) {
+          toast?.error(
+            "Falta configuración",
+            "No existe el bucket 'avatars'. Crealo en Supabase Storage (public) y volvé a intentar."
+          );
+          return;
+        }
+        throw up.error;
+      }
+
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+      const publicUrl = pub?.publicUrl || "";
+
+      setAvatarUrl(publicUrl);
+      toast?.success("Listo", "Foto actualizada. Guardá para aplicar.");
+    } catch (e) {
+      toast?.error("No se pudo subir", e?.message || "Error subiendo la foto.");
+    } finally {
+      setAvatarUploading(false);
+      if (avatarRef.current) avatarRef.current.value = "";
+    }
+  }
+
+  function removeAvatar() {
+    setAvatarUrl("");
+    toast?.info("Foto eliminada", "Guardá para aplicar el cambio.");
   }
 
   async function uploadCertification(file) {
@@ -642,6 +698,64 @@ function EditProfileModal({
 
                   {/* ✅ mobile: scroll más estable, padding bottom para no tapar inputs */}
                   <div className="mt-5 grid gap-3 max-h-[72vh] overflow-y-auto overflow-x-hidden pr-1 pb-1">
+                   
+                    {/* ✅ Foto de perfil */}
+                    <div className="rounded-[22px] bg-black/[0.03] p-4">
+                    
+                    {!String(avatarUrl || "").trim() ? (
+                        <div className="rounded-[18px] bg-[#FFECEE] border border-[#9B1C1C]/15 px-4 py-3">
+                          <p className="text-[12px] font-semibold text-[#9B1C1C]">
+                            La foto de perfil es obligatoria para prestadores.
+                          </p>
+                        </div>
+                      ) : null}
+                      
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="h-12 w-12 rounded-full overflow-hidden bg-white border border-black/10 grid place-items-center shrink-0">
+                            {avatarUrl ? (
+                              <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                            ) : (
+                              <IconifyIcon icon="mdi:account" className="h-6 w-6 text-black/30" />
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="text-[12px] font-semibold text-black/45">Foto de perfil</p>
+                            <p className="mt-0.5 text-[12px] text-black/40 truncate">
+                              {avatarUploading ? "Subiendo…" : avatarUrl ? "Actualizada" : "Sin foto"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <input
+                            ref={avatarRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => uploadAvatar(e.target.files?.[0])}
+                            disabled={busy || avatarUploading}
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => avatarRef.current?.click()}
+                            disabled={busy || avatarUploading}
+                            className={[
+                              "h-10 px-4 rounded-full bg-white border border-black/10",
+                              "text-[12px] font-semibold text-[#3D3D3D] shadow-[0_8px_18px_rgba(0,0,0,0.06)]",
+                              "active:scale-[0.99] transition",
+                              avatarUploading ? "opacity-70" : "",
+                            ].join(" ")}
+                          >
+                            Cambiar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    
                     <InputPill
                       label="Nombre y apellido"
                       value={fullName}
@@ -764,6 +878,7 @@ function EditProfileModal({
                           full_name: fullName.trim(),
                           neighborhood: neighborhood.trim(),
                           about: about.trim(),
+                          avatar_url: avatarUrl ? String(avatarUrl) : null,
                           certificate_url: (certFiles || [])[0] ? String((certFiles || [])[0]) : null,
                           cert_url: JSON.stringify(certFiles || []),
                         })
@@ -1070,20 +1185,30 @@ export default function Profile() {
             <RowButton icon="mdi:shield-outline" title="Privacidad y términos" desc="Información legal de la app" onClick={() => nav("/provider/legal")} />
           </div>
 
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className={[
-                "w-full rounded-full py-3 font-semibold transition active:scale-[0.99] box-border",
-                "bg-white border border-black/10 text-[#3D3D3D]",
-                "shadow-[0_8px_18px_rgba(0,0,0,0.06)]",
-                loggingOut ? "opacity-60" : "",
-              ].join(" ")}
-            >
-              {loggingOut ? "Cerrando sesión…" : "Cerrar sesión"}
-            </button>
+          <div className="mt-4 overflow-visible pb-[max(18px,env(safe-area-inset-bottom))]">
+            {/* ✅ aire real abajo para que NO se corte la sombra al final del scroll */}
+            <div className="pt-2 pb-3 overflow-visible">
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className={[
+                  "w-full rounded-full py-3 font-semibold transition active:scale-[0.99] box-border",
+                  "bg-white border border-black/10 text-[#3D3D3D]",
+                  // ✅ usar box-shadow (NO drop-shadow)
+                  "shadow-[0_10px_24px_rgba(0,0,0,0.08)]",
+                  // ✅ icon + texto centrados
+                  "inline-flex items-center justify-center gap-2",
+                  loggingOut ? "opacity-60" : "",
+                ].join(" ")}
+              >
+                <IconifyIcon icon="mdi:logout" className="h-5 w-5 text-black/45" />
+                {loggingOut ? "Cerrando sesión…" : "Cerrar sesión"}
+              </button>
+            </div>
+
+            {/* ✅ separador extra (garantiza que el scroll nunca “corte” la sombra) */}
+            <div className="h-6" />
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "../../services/supabase";
 import { useToast } from "../../components/Toast";
 import { listMyAppointmentsAsProvider, completeAppointmentByRequestId, markRequestCompleted } from "../../services/appointments";
+import { useNavigate } from "react-router-dom";
 
 function startOfDay(d) {
   const x = new Date(d);
@@ -43,6 +44,32 @@ function formatPrettyDateTime(iso) {
   const dayMonth = d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
   const time = d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
   return `${weekday}, ${dayMonth} · ${time}`;
+}
+
+function parseDescAndLocation(raw) {
+  const text = String(raw || "");
+
+  // separo descripción de la parte de ubicación
+  const marker = "📍 Ubicación:";
+  const idx = text.indexOf(marker);
+
+  const descOnly = (idx === -1 ? text : text.slice(0, idx)).trim();
+
+  // intento extraer barrio y dirección desde lo que quedó después del marker
+  let barrio = "";
+  let direccion = "";
+
+  if (idx !== -1) {
+    const tail = text.slice(idx);
+
+    const b = tail.match(/-\s*Barrio:\s*([^-\n]+)/i);
+    const d = tail.match(/-\s*Direcci[oó]n:\s*([^-\n]+)/i);
+
+    barrio = String(b?.[1] || "").trim();
+    direccion = String(d?.[1] || "").trim();
+  }
+
+  return { descOnly, barrio, direccion };
 }
 
 function IconButton({ onClick, title, children, className = "" }) {
@@ -96,31 +123,42 @@ function StatusPill({ status }) {
 
 function DayChip({ active, date, count, onClick }) {
   const isToday = sameDay(date, new Date());
+
+  const shadow = active
+    ? "drop-shadow(0 6px 14px rgba(30,47,93,0.14))"
+    : "drop-shadow(0 3px 10px rgba(0,0,0,0.04))";
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className={[
-        "w-[74px] rounded-[18px] px-3 py-3 text-left shrink-0 transition active:scale-[0.98]",
-        active
-          ? "bg-[#1E2F5D] text-white shadow-[0_10px_22px_rgba(30,47,93,0.22)]"
-          : "bg-white text-[#3D3D3D] shadow-[0_4px_12px_rgba(0,0,0,0.06)]",
-      ].join(" ")}
+      className="shrink-0 active:scale-[0.98] transition"
     >
-      <p className="text-[11px] font-extrabold leading-none opacity-95">
-        {isToday ? "HOY" : formatWeekdayShort(date)}
-      </p>
-      <p className="mt-1 text-[20px] font-extrabold leading-[22px]">{formatDayNumber(date)}</p>
+      {/* ✅ wrapper que contiene la sombra */}
+      <div className={["p-[2px]", shadow].join(" ")}>
+        {/* ✅ tarjeta real (sin sombra) */}
+        <div
+          className={[
+            "w-[74px] rounded-[18px] px-3 py-3 text-left",
+            active ? "bg-[#1E2F5D] text-white" : "bg-white text-[#3D3D3D]",
+          ].join(" ")}
+        >
+          <p className="text-[11px] font-extrabold leading-none opacity-95">
+            {isToday ? "HOY" : formatWeekdayShort(date)}
+          </p>
+          <p className="mt-1 text-[20px] font-extrabold leading-[22px]">{formatDayNumber(date)}</p>
 
-      <div
-        className={[
-          "mt-2 w-full rounded-full px-2 py-1 text-[10px] font-semibold leading-none text-center",
-          active ? "bg-white/15 text-white" : "bg-black/[0.04] text-black/55",
-        ].join(" ")}
-      >
-        <span className="whitespace-nowrap block truncate">
-          {count} turno{count === 1 ? "" : "s"}
-        </span>
+          <div
+            className={[
+              "mt-2 w-full rounded-full px-2 py-1 text-[10px] font-semibold leading-none text-center",
+              active ? "bg-white/15 text-white" : "bg-black/[0.04] text-black/55",
+            ].join(" ")}
+          >
+            <span className="whitespace-nowrap block truncate">
+              {count} turno{count === 1 ? "" : "s"}
+            </span>
+          </div>
+        </div>
       </div>
     </button>
   );
@@ -143,6 +181,7 @@ function EmptyBox({ title, desc }) {
 }
 
 export default function Agenda() {
+  const nav = useNavigate();
   const { user } = useAuth();
   const toast = useToast();
 
@@ -288,6 +327,14 @@ export default function Agenda() {
   }
 
   const detailRequest = detailAppt?.request_id ? requestsById[detailAppt.request_id] : null;
+  const parsed = useMemo(
+    () => parseDescAndLocation(detailRequest?.description),
+    [detailRequest?.description]
+  );
+
+  const detailDescOnly = parsed.descOnly;
+  const detailBarrio = parsed.barrio;
+  const detailDireccion = parsed.direccion;
 
   const detailName = detailRequest?.provider_service?.service_catalog?.name || "Servicio";
   const detailCategory = detailRequest?.provider_service?.service_catalog?.category || "";
@@ -349,23 +396,23 @@ export default function Agenda() {
           </button>
         </div>
 
-        <div className="mt-3 -mx-6 px-6 overflow-x-auto hide-scrollbar pb-2">
+        <div className="mt-3 -mx-6 px-6 overflow-x-auto hide-scrollbar py-3">
           <style>{`
             .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
             .hide-scrollbar::-webkit-scrollbar { display: none; }
           `}</style>
 
-          <div className="flex gap-3 w-max">
-            {daysStrip.map((d) => (
-              <DayChip
-                key={d.toISOString()}
-                date={d}
-                active={sameDay(d, selectedDate)}
-                count={countsByDay.get(d.getTime()) || 0}
-                onClick={() => setSelectedDate(startOfDay(d))}
-              />
-            ))}
-          </div>
+           <div className="flex gap-3 w-max pl-2 pr-2">
+              {daysStrip.map((d) => (
+                <DayChip
+                  key={d.toISOString()}
+                  date={d}
+                  active={sameDay(d, selectedDate)}
+                  count={countsByDay.get(d.getTime()) || 0}
+                  onClick={() => setSelectedDate(startOfDay(d))}
+                />
+              ))}
+            </div>
         </div>
 
         {err && <p className="mt-4 text-sm text-red-600">{err}</p>}
@@ -490,17 +537,6 @@ export default function Agenda() {
                   <p className="text-[18px] font-extrabold text-[#3D3D3D] truncate">{detailName}</p>
                   {!!detailCategory && <p className="mt-1 text-[12px] text-black/45">{detailCategory}</p>}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={closeDetail}
-                  disabled={busy}
-                  className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition disabled:opacity-60"
-                  aria-label="Cerrar"
-                  title="Cerrar"
-                >
-                  <IconifyIcon icon="mdi:close" className="h-6 w-6 text-black/40" />
-                </button>
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -516,12 +552,37 @@ export default function Agenda() {
                   <span className="truncate">{detailClientName}</span>
                 </div>
 
-                {detailRequest?.description && (
-                  <div className="rounded-2xl bg-black/[0.03] p-3">
-                    <p className="text-[12px] font-semibold text-black/60">Descripción</p>
-                    <p className="mt-1 text-[13px] text-black/70">{detailRequest.description}</p>
-                  </div>
-                )}
+                {(detailDescOnly || detailBarrio || detailDireccion) && (
+                <div className="rounded-2xl bg-black/[0.03] p-3">
+                  <p className="text-[12px] font-semibold text-black/60">Descripción</p>
+
+                  {detailDescOnly ? (
+                    <p className="mt-1 text-[13px] text-black/70 whitespace-pre-line">
+                      {detailDescOnly}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-[13px] text-black/50 italic">Sin descripción</p>
+                  )}
+
+                  {(detailBarrio || detailDireccion) && (
+                    <div className="mt-3 pt-3 border-t border-black/10 grid gap-2 text-[13px]">
+                      {detailBarrio ? (
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="text-black/45">Barrio</span>
+                          <span className="font-semibold text-black/70 text-right">{detailBarrio}</span>
+                        </div>
+                      ) : null}
+
+                      {detailDireccion ? (
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="text-black/45">Dirección</span>
+                          <span className="font-semibold text-black/70 text-right">{detailDireccion}</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              )}
 
                 {detailPricingType === "A" && detailRequest?.provider_service?.base_price != null && (
                   <div className="rounded-2xl bg-black/[0.03] p-3">
@@ -557,21 +618,17 @@ export default function Agenda() {
                   </button>
                 )}
 
-                {!canComplete && (
-                  <div className="rounded-2xl bg-black/[0.03] p-3">
-                    <p className="text-[12px] text-black/55">
-                      Podés completar el turno cuando ya haya finalizado (según el horario).
-                    </p>
-                  </div>
-                )}
-
                 <button
                   type="button"
-                  onClick={closeDetail}
-                  disabled={busy}
-                  className="h-12 w-full rounded-full bg-black/[0.04] text-[13px] font-semibold text-black/70 active:scale-[0.98] transition disabled:opacity-60"
+                  onClick={() => {
+                    if (!detailAppt?.request_id) return;
+                    closeDetail();
+                    nav(`/provider/requests/${detailAppt.request_id}`);
+                  }}
+                  disabled={busy || !detailAppt?.request_id}
+                  className="h-12 w-full rounded-full bg-[#1E2F5D] text-[13px] font-semibold text-white active:scale-[0.98] transition disabled:opacity-60"
                 >
-                  Volver
+                  Ir a la solicitud
                 </button>
               </div>
             </motion.div>
