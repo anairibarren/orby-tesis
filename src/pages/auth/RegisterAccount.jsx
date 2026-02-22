@@ -40,7 +40,7 @@ function InputBase({ invalid = false, className = "", ...props }) {
       {...props}
       className={[
         "w-full h-[46px] rounded-full bg-[#F1F3F5] border border-black/10",
-        "pl-12 pr-4 text-[13px] font-semibold text-[#3D3D3D] placeholder:text-black/35",
+        "pl-12 pr-4 text-[16px] font-semibold text-[#3D3D3D] placeholder:text-black/35",
         "outline-none focus:border-[#1E2F5D] focus:ring-2 focus:ring-[#1E2F5D]/10",
         invalid ? "border-red-300 focus:border-red-400 focus:ring-red-200/60" : "",
         className,
@@ -88,7 +88,7 @@ function BarrioCombo({ value, onChange, disabled, invalid = false }) {
         disabled={disabled}
         className={[
           "w-full h-[46px] rounded-full bg-[#F1F3F5] border border-black/10",
-          "pl-12 pr-12 text-[13px] font-semibold text-[#3D3D3D] placeholder:text-black/35",
+          "pl-12 pr-12 text-[16px] font-semibold text-[#3D3D3D] placeholder:text-black/35",
           "outline-none focus:border-[#1E2F5D] focus:ring-2 focus:ring-[#1E2F5D]/10",
           invalid ? "border-red-300 focus:border-red-400 focus:ring-red-200/60" : "",
         ].join(" ")}

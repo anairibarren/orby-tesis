@@ -66,7 +66,7 @@ function Field({ label, value, onChange, placeholder, multiline = false, rows = 
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className="mt-2 w-full bg-transparent text-[14px] text-[#3D3D3D] outline-none placeholder:text-black/25"
+          className="mt-2 w-full bg-transparent text-[16px] text-[#3D3D3D] outline-none placeholder:text-black/25"
         />
       )}
 

@@ -1013,7 +1013,7 @@ export default function ProviderAvailability() {
                                   type="time"
                                   value={fmtHHMM(ed.start_time)}
                                   onChange={(e) => updateEdit(r.id, { start_time: e.target.value })}
-                                  className="w-full bg-transparent outline-none text-[14px] font-extrabold text-[#3D3D3D]"
+                                  className="w-full bg-transparent outline-none text-[16px] font-extrabold text-[#3D3D3D]"
                                 />
                               </Field>
 
@@ -1022,7 +1022,7 @@ export default function ProviderAvailability() {
                                   type="time"
                                   value={fmtHHMM(ed.end_time)}
                                   onChange={(e) => updateEdit(r.id, { end_time: e.target.value })}
-                                  className="w-full bg-transparent outline-none text-[14px] font-extrabold text-[#3D3D3D]"
+                                  className="w-full bg-transparent outline-none text-[16px] font-extrabold text-[#3D3D3D]"
                                 />
                               </Field>
                             </div>
@@ -1080,7 +1080,7 @@ export default function ProviderAvailability() {
                           type="time"
                           value={fmtHHMM(newStart)}
                           onChange={(e) => setNewStart(e.target.value)}
-                          className="w-full bg-transparent outline-none text-[14px] font-extrabold text-[#3D3D3D]"
+                          className="w-full bg-transparent outline-none text-[16px] font-extrabold text-[#3D3D3D]"
                         />
                       </Field>
 
@@ -1089,7 +1089,7 @@ export default function ProviderAvailability() {
                           type="time"
                           value={fmtHHMM(newEnd)}
                           onChange={(e) => setNewEnd(e.target.value)}
-                          className="w-full bg-transparent outline-none text-[14px] font-extrabold text-[#3D3D3D]"
+                          className="w-full bg-transparent outline-none text-[16px] font-extrabold text-[#3D3D3D]"
                         />
                       </Field>
                     </div>

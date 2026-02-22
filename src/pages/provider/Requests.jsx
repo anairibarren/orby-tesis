@@ -1133,7 +1133,7 @@ export default function Requests() {
                             <div className="flex-1 relative">
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-black/35 text-sm">$</span>
                               <input
-                                className="w-full h-11 rounded-full bg-white border border-black/10 px-4 pl-7 text-[13px] font-semibold outline-none text-[#3D3D3D] placeholder:text-black/30"
+                                className="w-full h-11 rounded-full bg-white border border-black/10 px-4 pl-7 text-[16px] font-semibold outline-none text-[#3D3D3D] placeholder:text-black/30"
                                 type="text"
                                 inputMode="numeric"
                                 pattern="[0-9.]*"

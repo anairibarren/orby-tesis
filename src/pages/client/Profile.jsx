@@ -163,7 +163,7 @@ function InputPill({ label, value, onChange, placeholder, disabled, icon }) {
         onChange={onChange}
         placeholder={placeholder}
         disabled={disabled}
-        className="mt-2 w-full bg-transparent text-[14px] font-semibold text-[#3D3D3D] outline-none placeholder:text-black/25"
+        className="mt-2 w-full bg-transparent text-[16px] font-semibold text-[#3D3D3D] outline-none placeholder:text-black/25"
       />
     </div>
   );
@@ -250,7 +250,7 @@ function NeighborhoodCombobox({ value, onChange, disabled }) {
           onFocus={() => setOpen(true)}
           placeholder="Elegí un barrio…"
           disabled={disabled}
-          className="mt-2 w-full bg-transparent text-[14px] font-semibold text-[#3D3D3D] outline-none placeholder:text-black/25"
+          className="mt-2 w-full bg-transparent text-[16px] font-semibold text-[#3D3D3D] outline-none placeholder:text-black/25"
         />
       </div>
 
@@ -382,7 +382,7 @@ function EditProfileModal({ open, onClose, onSave, busy, initial }) {
                     label="Nombre y apellido"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Ej: Jazmín Carrión"
+                    placeholder="Escribí tu nombre"
                     disabled={busy}
                     icon="mdi:account-outline"
                   />

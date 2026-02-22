@@ -875,7 +875,7 @@ export default function Home() {
               <div className="mt-2 flex items-center gap-2 rounded-[18px] bg-black/[0.04] px-4 py-3">
                 <span className="text-[14px] font-extrabold text-[#1E2F5D]">$</span>
                 <input
-                  className="w-full bg-transparent outline-none text-[14px] font-semibold text-[#3D3D3D] placeholder:text-black/35"
+                  className="w-full bg-transparent outline-none text-[16px] font-semibold text-[#3D3D3D] placeholder:text-black/35"
                   value={priceInput}
                   onChange={(e) => setPriceInput(e.target.value)}
                   placeholder="Ej: 20000"

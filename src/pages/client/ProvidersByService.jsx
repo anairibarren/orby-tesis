@@ -287,7 +287,7 @@ export default function ProvidersByService() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Buscar prestador o zona"
-              className="min-w-0 w-full bg-transparent outline-none text-sm text-[#3D3D3D] placeholder:text-black/35"
+              className="min-w-0 w-full bg-transparent outline-none text-[16px] text-[#3D3D3D] placeholder:text-black/35"
             />
           </div>
 

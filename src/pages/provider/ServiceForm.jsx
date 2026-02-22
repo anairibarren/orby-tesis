@@ -240,7 +240,7 @@ function ServiceSelectSheet({ open, title, subtitle, options, selectedValue, onC
                       value={q}
                       onChange={(e) => setQ(e.target.value)}
                       placeholder="Buscar por nombre o categoría…"
-                      className="w-full bg-transparent outline-none text-[14px] font-medium text-[#3D3D3D] placeholder:text-black/35 min-w-0"
+                      className="w-full bg-transparent outline-none text-[16px] font-medium text-[#3D3D3D] placeholder:text-black/35 min-w-0"
                       inputMode="search"
                     />
                   </div>
@@ -551,7 +551,7 @@ export default function ServiceForm() {
                 <div className="mt-2 h-12 w-full rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.04)] px-4 flex items-center gap-2 min-w-0 overflow-hidden">
                   <span className="text-[14px] font-extrabold text-[#2A4691]">$</span>
                   <input
-                    className="w-full bg-transparent outline-none text-[14px] font-semibold text-[#3D3D3D] placeholder:text-black/35 min-w-0"
+                    className="w-full bg-transparent outline-none text-[16px] font-semibold text-[#3D3D3D] placeholder:text-black/35 min-w-0"
                     type="number"
                     min="1"
                     value={basePrice}

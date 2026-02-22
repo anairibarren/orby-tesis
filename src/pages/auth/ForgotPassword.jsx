@@ -79,7 +79,7 @@ export default function ForgotPassword() {
                 </span>
 
                 <input
-                  className="w-full rounded-full bg-[#F2F4F7] border border-black/5 pl-12 pr-4 py-3 text-[14px] text-[#3D3D3D] outline-none focus:border-[#1E2F5D] focus:ring-4 focus:ring-[#1E2F5D]/10"
+                  className="w-full rounded-full bg-[#F2F4F7] border border-black/5 pl-12 pr-4 py-3 text-[16px] text-[#3D3D3D] outline-none focus:border-[#1E2F5D] focus:ring-4 focus:ring-[#1E2F5D]/10"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="tu@email.com"
