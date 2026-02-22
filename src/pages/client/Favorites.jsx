@@ -18,6 +18,38 @@ function ServiceChip({ label }) {
   );
 }
 
+function FavoriteCardSkeleton() {
+  return (
+    <div className="rounded-[24px] bg-white shadow-[0_12px_26px_rgba(0,0,0,0.08)] p-4 animate-pulse">
+      {/* fila 1: avatar + nombre/barrio */}
+      <div className="flex items-start gap-3">
+        <div className="h-12 w-12 rounded-[18px] bg-black/10 shrink-0" />
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-[160px] rounded bg-black/10" />
+            <div className="h-4 w-4 rounded-full bg-black/10" />
+          </div>
+
+          <div className="mt-2 h-3 w-[110px] rounded bg-black/10" />
+        </div>
+      </div>
+
+      {/* fila 2: chips */}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <div className="h-7 w-[140px] rounded-full bg-black/10" />
+        <div className="h-7 w-[110px] rounded-full bg-black/10" />
+      </div>
+
+      {/* acciones */}
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <div className="h-10 w-[120px] rounded-full bg-black/10" />
+        <div className="h-4 w-[60px] rounded bg-black/10" />
+      </div>
+    </div>
+  );
+}
+
 export default function Favorites() {
   const nav = useNavigate();
   const toast = useToast();
@@ -167,13 +199,13 @@ export default function Favorites() {
           </div>
 
           {/* Contador a la derecha (no mostrar 0) */}
-          {(loading || count > 0) && (
-            <div className="mt-4 flex items-center justify-end">
-              <p className="text-[12px] font-semibold text-black/45">
-                {loading ? "Cargando…" : `${count} prestadores`}
-              </p>
-            </div>
-          )}
+          <div className="mt-4 flex items-center justify-end">
+            {loading ? (
+              <div className="h-4 w-24 rounded bg-black/10 animate-pulse" />
+            ) : count > 0 ? (
+              <p className="text-[12px] font-semibold text-black/45">{`${count} prestadores`}</p>
+            ) : null}
+          </div>
 
           {err && <p className="mt-4 text-sm text-red-600">{err}</p>}
 
@@ -201,10 +233,13 @@ export default function Favorites() {
             </div>
           )}
 
-          {/* Listado */}
-          {!loading && !err && count > 0 && (
-            <div className="mt-4 grid gap-3">
-              {rows.map((r) => {
+        {/* Listado */}
+        {!err && (
+          <div className="mt-4 grid gap-3">
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => <FavoriteCardSkeleton key={i} />)
+            ) : count > 0 ? (
+              rows.map((r) => {
                 const ps = r.provider_services;
                 const prov = ps?.profiles;
 
@@ -213,45 +248,45 @@ export default function Favorites() {
 
                 return (
                   <div key={r.id} className="rounded-[24px]">
-                    {/* ✅ Card SIN overflow-hidden para que no corte sombras internas */}
                     <div className="rounded-[24px] bg-white shadow-[0_12px_26px_rgba(0,0,0,0.08)] p-4">
                       <button
                         type="button"
                         onClick={() => nav(`/client/provider/${ps?.id}`)}
-                        className="w-full flex items-start gap-3 text-left"
+                        className="w-full text-left"
                       >
-                        <div className="h-12 w-12 rounded-[18px] bg-black/[0.04] overflow-hidden grid place-items-center shrink-0">
-                          {prov?.avatar_url ? (
-                            <img
-                              src={prov.avatar_url}
-                              alt={prov?.full_name || "Prestador"}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <IconifyIcon icon="mdi:account" className="h-6 w-6 text-black/25" />
-                          )}
-                        </div>
+                        <div className="w-full">
+                          <div className="flex items-start gap-3">
+                            <div className="h-12 w-12 rounded-[18px] bg-black/[0.04] overflow-hidden grid place-items-center shrink-0">
+                              {prov?.avatar_url ? (
+                                <img
+                                  src={prov.avatar_url}
+                                  alt={prov?.full_name || "Prestador"}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <IconifyIcon icon="mdi:account" className="h-6 w-6 text-black/25" />
+                              )}
+                            </div>
 
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <p className="text-[15px] font-extrabold text-[#3D3D3D] truncate">
-                              {prov?.full_name || "Prestador"}
-                            </p>
-                            {verified && <VerifiedBadge />}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <p className="text-[15px] font-extrabold text-[#3D3D3D] truncate">
+                                  {prov?.full_name || "Prestador"}
+                                </p>
+                                {verified && <VerifiedBadge />}
+                              </div>
+
+                              <p className="mt-1 text-[12px] text-black/45 truncate">
+                                {prov?.neighborhood || "—"}
+                              </p>
+                            </div>
                           </div>
 
-                          <p className="mt-1 text-[12px] text-black/45 truncate">
-                            {prov?.neighborhood || "—"}
-                          </p>
-
-                          {/* ✅ Todos los servicios publicados (chips) */}
                           {services.length ? (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {services.slice(0, 8).map((name) => (
-                                <ServiceChip key={name} label={name} />
-                              ))}
-                              {services.length > 8 ? (
-                                <ServiceChip label={`+${services.length - 8}`} />
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              <ServiceChip label={services[0]} />
+                              {services.length > 1 ? (
+                                <ServiceChip label={`+${services.length - 1} servicios`} />
                               ) : null}
                             </div>
                           ) : (
@@ -283,9 +318,10 @@ export default function Favorites() {
                     </div>
                   </div>
                 );
-              })}
-            </div>
-          )}
+              })
+            ) : null}
+          </div>
+        )}
         </div>
       </div>
     </div>

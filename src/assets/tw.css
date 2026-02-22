@@ -151,3 +151,7 @@ input::selection,
 textarea::selection {
   background: rgba(30, 47, 93, 0.18);
 }
+
+@supports (-webkit-touch-callout: none) {
+  input, textarea, select { font-size: 16px; }
+}

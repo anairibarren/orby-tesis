@@ -825,8 +825,10 @@ export default function ClientSchedule() {
                 "h-10 w-10 rounded-full grid place-items-center text-[13px] transition",
                 selected ? "bg-[#1E2F5D] text-white" : "bg-white",
                 selectable
-                  ? "border border-black/10 hover:bg-black/[0.03] active:scale-[0.98]"
-                  : "border border-black/5 text-black/25 bg-black/[0.02] cursor-not-allowed",
+                  ? (selected
+                      ? "border border-[#1E2F5D] hover:bg-[#1E2F5D] hover:text-white active:scale-[0.98]"
+                      : "border border-black/10 hover:bg-black/[0.03] active:scale-[0.98]")
+                  : "border border-black/5 bg-black/[0.04] text-black/30 cursor-not-allowed",
               ].join(" ");
 
               return (

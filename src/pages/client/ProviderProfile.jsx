@@ -110,35 +110,15 @@ function mergeAvailability(ranges = []) {
   return out;
 }
 
-async function onShare() {
-  try {
-    const baseUrl =
-      import.meta.env.VITE_PUBLIC_APP_URL ||
-      window.location.origin;
+function shareText({ providerName, serviceName }) {
+  const p = providerName ? providerName : "Prestador";
+  const s = serviceName ? `Servicio: ${serviceName}` : null;
 
-    // Link profundo a este perfil (tu ruta actual)
-    const url = `${baseUrl}/client/provider/${encodeURIComponent(providerServiceId)}`;
-
-    const text = shareText({
-      providerName,
-      serviceName: currentServiceName,
-      url,
-    });
-
-    if (navigator.share) {
-      await navigator.share({
-        title: "orby",
-        text,
-        url, 
-      });
-      return;
-    }
-
-    await navigator.clipboard.writeText(text);
-    toast.success("Copiado", "Se copió el link para compartir.");
-  } catch {
-    // noop
-  }
+  return [
+    `Te comparto el perfil de ${p} en orby.`,
+    s,
+    "Podés ver el detalle y agendar desde el link 👇",
+  ].filter(Boolean).join("\n");
 }
 
 function initials(name) {
@@ -605,18 +585,28 @@ export default function ProviderProfile() {
     }
   }
 
-  async function onShare() {
-    try {
-      const text = shareText({ providerName, serviceName: currentServiceName });
-      if (navigator.share) await navigator.share({ title: "Orby", text });
-      else {
-        await navigator.clipboard.writeText(text);
-        toast.success("Copiado", "Se copió al portapapeles.");
-      }
-    } catch {
-      // noop
+async function onShare() {
+  try {
+    const baseUrl = import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin;
+    const url = `${baseUrl}/client/provider/${encodeURIComponent(providerServiceId)}`;
+
+    const text = shareText({
+      providerName,
+      serviceName: currentServiceName,
+    });
+
+    if (navigator.share) {
+      await navigator.share({ title: "Orby", text, url });
+      return;
     }
+
+    // fallback: acá sí copiamos texto + link en una sola pieza
+    await navigator.clipboard.writeText(`${text}\n${url}`);
+    toast.success("Copiado", "Se copió el link para compartir.");
+  } catch (e) {
+    toast.error("No se pudo compartir", e?.message || "Probá de nuevo.");
   }
+}
 
   function goBack() {
     const from = location?.state?.from;
@@ -870,35 +860,38 @@ export default function ProviderProfile() {
 
                         {/* ✅ dentro del wrapper: ya no necesitamos -mx */}
                         <div className="mt-4 overflow-x-auto overflow-y-visible hide-scrollbar">
-                          <div className="flex gap-3 py-5 overflow-visible pr-1">
+                          <div className="flex gap-3 py-5 overflow-visible px-4 pr-4">
                             {others.map((it) => (
                               <button
-                                key={it.id}
-                                type="button"
-                                onClick={() => nav(`/client/services/${it.id}`, { state: { from: location.pathname } })}
-                                className="
-                                  min-w-[220px] sm:min-w-[260px] shrink-0
-                                  rounded-[999px]
-                                  bg-white
-                                  px-3 py-2
-                                  border border-black/5
-                                  shadow-[0_6px_14px_rgba(16,24,40,0.08)]
-                                  active:scale-[0.99] transition
-                                  flex items-center gap-2.5
-                                "
+                              key={it.id}
+                              type="button"
+                              onClick={() => nav(`/client/services/${it.id}`, { state: { from: location.pathname } })}
+                              className={[
+                                "w-fit shrink-0 inline-flex items-center gap-2.5",
+                                "rounded-full bg-white",
+                                "px-3 py-2",
+                                "border border-black/5",
+                                "shadow-[0_6px_14px_rgba(16,24,40,0.08)]",
+                                "active:scale-[0.99] transition",
+                              ].join(" ")}
+                            >
+                              <span className="h-9 w-9 rounded-full bg-[#EAF1FF] grid place-items-center shrink-0">
+                                <IconifyIcon
+                                  icon={iconForService({ name: it.name, category: it.category })}
+                                  className="h-5 w-5 text-[#2A4691]"
+                                />
+                              </span>
+
+                              <span
+                                className="text-[13px] font-medium text-[#3D3D3D] leading-[16px] whitespace-nowrap"
+                                style={{ maxWidth: 220 }} // ✅ ajustá si querés (ej: 180 mobile)
+                                title={it.name}
                               >
-                                <span className="h-9 w-9 rounded-full bg-[#EAF1FF] grid place-items-center shrink-0">
-                                  <IconifyIcon icon={iconForService({ name: it.name, category: it.category })} className="h-5 w-5 text-[#2A4691]" />
-                                </span>
+                                {it.name}
+                              </span>
 
-                                <span className="min-w-0 flex-1">
-                                  <span className="block text-[13px] font-medium text-[#3D3D3D] leading-[16px] line-clamp-2">
-                                    {it.name}
-                                  </span>
-                                </span>
-
-                                <IconifyIcon icon="mdi:chevron-right" className="h-6 w-6 text-black/30 shrink-0" />
-                              </button>
+                              <IconifyIcon icon="mdi:chevron-right" className="h-6 w-6 text-black/30 shrink-0" />
+                            </button>
                             ))}
                           </div>
                         </div>

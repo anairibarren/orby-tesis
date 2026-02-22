@@ -20,7 +20,6 @@ function fmtTime(iso) {
 function dateKey(iso) {
   try {
     const d = new Date(iso);
-    // yyyy-mm-dd
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
       d.getDate()
     ).padStart(2, "0")}`;
@@ -48,9 +47,6 @@ function dayLabel(iso) {
   }
 }
 
-/** ✅ Tildes tipo WhatsApp:
- * - En tus mensajes: doble tilde gris si NO seen_at, doble tilde celeste si seen_at
- */
 function WhatsAppTicks({ mine, seen }) {
   if (!mine) return null;
 
@@ -93,7 +89,6 @@ function Bubble({ mine, body, createdAt, seenAt }) {
   );
 }
 
-/** ✅ Banner tipo WhatsApp (cuando está vacío) */
 function WhatsAppInfoBanner() {
   return (
     <div className="mx-auto mt-6 max-w-[380px] rounded-2xl bg-[#1E2F5D]/[0.06] border border-[#1E2F5D]/15 px-4 py-3 shadow-[0_10px_22px_rgba(0,0,0,0.06)]">
@@ -117,7 +112,67 @@ function DayDivider({ label }) {
   );
 }
 
-export default function RequestChat({ requestId, myUserId, enabled = true, locked = false }) {  const [loading, setLoading] = useState(true);
+/** ✅ Burbuja “escribiendo…” (3 puntitos) del lado del otro */
+function TypingBubble() {
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[86%] rounded-2xl px-4 py-3 bg-white border border-black/10 shadow-[0_10px_22px_rgba(0,0,0,0.06)]">
+        <div className="flex items-center gap-2">
+          <span className="typing-dot" />
+          <span className="typing-dot typing-dot--2" />
+          <span className="typing-dot typing-dot--3" />
+        </div>
+
+        <style>{`
+          @keyframes typingBounce {
+            0%, 80%, 100% { transform: translateY(0); opacity: 0.55; }
+            40% { transform: translateY(-4px); opacity: 1; }
+          }
+          .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 9999px;
+            background: rgba(0,0,0,0.35);
+            animation: typingBounce 1.1s infinite;
+          }
+          .typing-dot--2 { animation-delay: 0.12s; }
+          .typing-dot--3 { animation-delay: 0.24s; }
+        `}</style>
+      </div>
+    </div>
+  );
+}
+
+function ChatLoader() {
+  return (
+    <div className="pt-3">
+      <div className="mx-auto w-fit rounded-full bg-white border border-black/10 px-4 py-2 shadow-[0_8px_18px_rgba(0,0,0,0.05)]">
+        <div className="flex items-center gap-2">
+          <span className="text-[12px] font-semibold text-black/45">Cargando</span>
+          <span className="loader-dot" />
+          <span className="loader-dot loader-dot--2" />
+          <span className="loader-dot loader-dot--3" />
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes loaderPulse {
+          0%, 80%, 100% { transform: translateY(0); opacity: 0.25; }
+          40% { transform: translateY(-2px); opacity: 0.9; }
+        }
+        .loader-dot{
+          width:6px;height:6px;border-radius:9999px;
+          background: rgba(0,0,0,0.35);
+          animation: loaderPulse 1.05s infinite;
+        }
+        .loader-dot--2{ animation-delay: .12s; }
+        .loader-dot--3{ animation-delay: .24s; }
+      `}</style>
+    </div>
+  );
+}
+export default function RequestChat({ requestId, myUserId, enabled = true, locked = false }) {
+  const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -125,7 +180,12 @@ export default function RequestChat({ requestId, myUserId, enabled = true, locke
 
   const canUse = !!requestId && !!myUserId && !!enabled;
 
-  // ✅ marca vistos SOLO los mensajes del otro (sender_id != yo)
+  // ✅ typing state
+  const [otherTyping, setOtherTyping] = useState(false);
+  const typingOffTimerRef = useRef(null);
+  const lastTypingSentAtRef = useRef(0);
+  const channelRef = useRef(null);
+
   async function markSeen() {
     if (!requestId || !myUserId) return;
 
@@ -136,7 +196,6 @@ export default function RequestChat({ requestId, myUserId, enabled = true, locke
       .neq("sender_id", myUserId)
       .is("seen_at", null);
 
-    // OJO: si esto falla por RLS, nunca vas a ver el azul.
     if (error) console.warn("[RequestChat] markSeen error:", error.message);
   }
 
@@ -157,7 +216,6 @@ export default function RequestChat({ requestId, myUserId, enabled = true, locke
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestId]);
 
-  // ✅ si volvés al tab/app, re-marcar vistos
   useEffect(() => {
     const onVis = () => {
       if (document.visibilityState === "visible") markSeen();
@@ -167,7 +225,7 @@ export default function RequestChat({ requestId, myUserId, enabled = true, locke
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestId, myUserId]);
 
-  // ✅ realtime: INSERT + UPDATE (para ver seen_at reflejado)
+  // ✅ realtime: INSERT + UPDATE + typing broadcast
   useEffect(() => {
     if (!requestId) return;
 
@@ -185,9 +243,16 @@ export default function RequestChat({ requestId, myUserId, enabled = true, locke
             return [...prev, row];
           });
 
-          // si llegó mensaje del otro -> marcar visto (si estoy adentro del chat)
+          // si llegó mensaje del otro -> marcar visto
           if (myUserId && row.sender_id !== myUserId) {
             await markSeen();
+          }
+
+          // si el otro mandó mensaje, ya no está “escribiendo…”
+          if (row?.sender_id && row.sender_id !== myUserId) {
+            setOtherTyping(false);
+            if (typingOffTimerRef.current) clearTimeout(typingOffTimerRef.current);
+            typingOffTimerRef.current = null;
           }
         }
       )
@@ -200,15 +265,34 @@ export default function RequestChat({ requestId, myUserId, enabled = true, locke
           setMessages((prev) => prev.map((m) => (m.id === row.id ? { ...m, ...row } : m)));
         }
       )
+      // ✅ typing broadcast
+      .on("broadcast", { event: "typing" }, (payload) => {
+        const senderId = payload?.payload?.sender_id;
+        if (!senderId) return;
+        if (senderId === myUserId) return; // ignoro mis propios eventos
+
+        setOtherTyping(true);
+
+        // auto-off si deja de mandar typing
+        if (typingOffTimerRef.current) clearTimeout(typingOffTimerRef.current);
+        typingOffTimerRef.current = setTimeout(() => setOtherTyping(false), 1500);
+      })
       .subscribe();
 
-    return () => supabase.removeChannel(ch);
+    channelRef.current = ch;
+
+    return () => {
+      if (typingOffTimerRef.current) clearTimeout(typingOffTimerRef.current);
+      typingOffTimerRef.current = null;
+      supabase.removeChannel(ch);
+      channelRef.current = null;
+    };
   }, [requestId, myUserId]);
 
   // scroll
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+  }, [messages.length, otherTyping]);
 
   const sorted = useMemo(() => {
     const arr = Array.isArray(messages) ? [...messages] : [];
@@ -216,7 +300,6 @@ export default function RequestChat({ requestId, myUserId, enabled = true, locke
     return arr;
   }, [messages]);
 
-  // ✅ armar lista con separadores por día
   const items = useMemo(() => {
     const out = [];
     let lastKey = null;
@@ -232,6 +315,27 @@ export default function RequestChat({ requestId, myUserId, enabled = true, locke
     return out;
   }, [sorted]);
 
+  // ✅ enviar “typing” con throttle
+  function pingTyping() {
+    if (!canUse || locked) return;
+    const ch = channelRef.current;
+    if (!ch) return;
+
+    const now = Date.now();
+    if (now - lastTypingSentAtRef.current < 800) return; // throttle
+    lastTypingSentAtRef.current = now;
+
+    try {
+      ch.send({
+        type: "broadcast",
+        event: "typing",
+        payload: { sender_id: myUserId, at: now },
+      });
+    } catch {
+      // noop
+    }
+  }
+
   async function onSend() {
     const clean = String(text || "").trim();
     if (!canUse || !clean) return;
@@ -245,8 +349,6 @@ export default function RequestChat({ requestId, myUserId, enabled = true, locke
     }
   }
 
-  // ✅ IMPORTANTE: ya NO mostramos mensaje “chat se habilita…”
-  // porque vos querés que ni exista el botón hasta agendada
   if (!enabled) {
     return <div className="flex-1" />;
   }
@@ -256,26 +358,29 @@ export default function RequestChat({ requestId, myUserId, enabled = true, locke
       {/* mensajes */}
       <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-4 pb-6 space-y-3">
         {loading && sorted.length === 0 ? (
-          <p className="text-[12px] text-black/40">Cargando…</p>
-        ) : sorted.length === 0 ? (
-          <>
-            <WhatsAppInfoBanner />
-          </>
-        ) : (
-          items.map((it) =>
-            it.type === "day" ? (
-              <DayDivider key={it.key} label={it.label} />
-            ) : (
-              <Bubble
-                key={it.key}
-                mine={it.msg.sender_id === myUserId}
-                body={it.msg.body}
-                createdAt={it.msg.created_at}
-                seenAt={it.msg.seen_at}
-              />
+            <ChatLoader />
+          ) : sorted.length === 0 ? (
+            <>
+              <WhatsAppInfoBanner />
+            </>
+          ) : (
+            items.map((it) =>
+              it.type === "day" ? (
+                <DayDivider key={it.key} label={it.label} />
+              ) : (
+                <Bubble
+                  key={it.key}
+                  mine={it.msg.sender_id === myUserId}
+                  body={it.msg.body}
+                  createdAt={it.msg.created_at}
+                  seenAt={it.msg.seen_at}
+                />
+              )
             )
-          )
-        )}
+          )}
+
+        {/* ✅ typing bubble del otro */}
+        {!locked && otherTyping ? <TypingBubble /> : null}
 
         <div ref={endRef} />
       </div>
@@ -294,12 +399,19 @@ export default function RequestChat({ requestId, myUserId, enabled = true, locke
             <div className="flex-1 h-[62px] rounded-full bg-white border border-black/10 shadow-[0_10px_22px_rgba(0,0,0,0.06)] flex items-center px-5">
               <input
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  if (String(e.target.value || "").trim()) pingTyping();
+                }}
+                onFocus={() => {
+                  if (String(text || "").trim()) pingTyping();
+                }}
                 placeholder={canUse ? "Escribí un mensaje…" : "No disponible"}
                 disabled={!canUse || busy}
-                className="w-full bg-transparent text-[15px] outline-none placeholder:text-black/30 disabled:opacity-60"
+                className="w-full bg-transparent text-[16px] outline-none placeholder:text-black/30 disabled:opacity-60"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") onSend();
+                  else pingTyping();
                 }}
               />
             </div>

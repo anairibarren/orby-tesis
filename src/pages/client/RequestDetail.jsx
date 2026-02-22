@@ -5,7 +5,6 @@ import { Icon as IconifyIcon } from "@iconify/react";
 
 import { useAuth } from "../../hooks/useAuth";
 import { useToast } from "../../components/Toast";
-import RequestChat from "../../components/RequestChat.jsx";
 import {
   getRequestById,
   getProviderServiceById,
@@ -328,9 +327,30 @@ export default function ClientRequestDetail() {
   // ✅ ⋯ menú
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // ✅ chat badge (mensajes sin leer)
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+
   // ✅ confirmar incumplida
   const [noShowConfirmOpen, setNoShowConfirmOpen] = useState(false);
   const [busyNoShow, setBusyNoShow] = useState(false);
+
+  async function refreshUnreadChatCount() {
+    if (!requestId || !user?.id) return;
+
+    try {
+      const { count, error } = await supabase
+        .from("request_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("request_id", requestId)
+        .neq("sender_id", user.id) // solo mensajes del otro
+        .is("seen_at", null);      // que yo no vi
+
+      if (error) throw error;
+      setUnreadChatCount(Number(count || 0));
+    } catch {
+      setUnreadChatCount(0);
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -372,6 +392,7 @@ export default function ClientRequestDetail() {
       setCatalog(catalogData);
 
       if (r?.completion_code) setGeneratedCode(String(r.completion_code));
+      await refreshUnreadChatCount();
     } catch (e) {
       setErr(e?.message || "No se pudo cargar el detalle.");
     } finally {
@@ -403,6 +424,8 @@ export default function ClientRequestDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestId, user?.id]);
 
+
+
   /** ✅ realtime */
   useEffect(() => {
     if (!requestId) return;
@@ -415,6 +438,24 @@ export default function ClientRequestDetail() {
         () => {
           refreshRequestOnly();
         }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(ch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestId, user?.id]);
+
+  useEffect(() => {
+    if (!requestId || !user?.id) return;
+
+    refreshUnreadChatCount();
+
+    const ch = supabase
+      .channel(`client-chat-badge-${requestId}-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "request_messages", filter: `request_id=eq.${requestId}` },
+        () => refreshUnreadChatCount()
       )
       .subscribe();
 
@@ -683,11 +724,30 @@ export default function ClientRequestDetail() {
                 <button
                   type="button"
                   onClick={() => nav(`/client/requests/${requestId}/chat`)}
-                  className="shrink-0 h-11 w-11 rounded-full bg-[#F2F2F2] border border-black/10 grid place-items-center shadow-[0_8px_18px_rgba(0,0,0,0.05)] hover:bg-[#EAEAEA] active:scale-[0.98] transition"
+                  className="relative shrink-0 h-11 w-11 rounded-full bg-[#F2F2F2] border border-black/10 grid place-items-center shadow-[0_8px_18px_rgba(0,0,0,0.05)] hover:bg-[#EAEAEA] active:scale-[0.98] transition"
                   aria-label="Abrir chat"
                   title="Abrir chat"
                 >
                   <IconifyIcon icon="solar:chat-round-dots-linear" className="h-5 w-5 text-black/55" />
+
+                  {unreadChatCount > 0 ? (
+                    <span
+                      className="
+                      absolute -top-1 -right-1
+                          min-w-[20px] h-[20px] px-1.5
+                          rounded-full
+                          bg-[#1E2F5D] text-white
+                          text-[11px] font-extrabold leading-none
+                          flex items-center justify-center
+                          border border-white
+                          shadow-[0_6px_14px_rgba(0,0,0,0.12)]
+                      "
+                      aria-label={`${unreadChatCount} mensajes sin leer`}
+                      title={`${unreadChatCount} sin leer`}
+                    >
+                      {unreadChatCount > 9 ? "9+" : unreadChatCount}
+                    </span>
+                  ) : null}
                 </button>
               ) : null}
             </div>
