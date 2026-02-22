@@ -549,7 +549,7 @@ export default function ServiceForm() {
                 <FieldLabel>Precio base</FieldLabel>
 
                 <div className="mt-2 h-12 w-full rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.04)] px-4 flex items-center gap-2 min-w-0 overflow-hidden">
-                  <span className="text-[14px] font-extrabold text-[#2A4691]">$</span>
+                  <span className="text-[16px] font-extrabold text-[#2A4691]">$</span>
                   <input
                     className="w-full bg-transparent outline-none text-[16px] font-semibold text-[#3D3D3D] placeholder:text-black/35 min-w-0"
                     type="number"
