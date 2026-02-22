@@ -494,62 +494,44 @@ export default function Home() {
       <div className="px-6 pt-[40px] pb-28">
 
        {/* Header (provider) + fondo azul más alto (menos redondeado) + patrón */}
-        <div className="-mx-6 -mt-[40px] px-6 pt-[max(40px,env(safe-area-inset-top))] pb-[64px] rounded-b-[22px] relative overflow-hidden bg-[#1E2F5D]">
+        <div
+          className="-mx-6 -mt-[40px] px-6 pt-[max(40px,env(safe-area-inset-top))] pb-[64px] rounded-b-[22px] relative overflow-hidden"
+          style={{
+            backgroundColor: "#1E2F5D",
+            backgroundImage: `url(${patronBg})`,
+            backgroundRepeat: "no-repeat",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 pt-1">
+              <p className="text-[13px] text-white/70">Hola,</p>
+              <h1 className="mt-1 text-[28px] font-extrabold text-white leading-tight truncate">
+                {firstName}
+              </h1>
+              <p className="mt-1 text-[13px] font-medium text-white/70">
+                Te damos la bienvenida a <span className="lowercase">orby</span>
+              </p>
+            </div>
 
-          <style>{`
-            .orby-patron {
-              background-repeat: repeat;
-              background-position: top center;
-              background-size: 520px auto;
-              opacity: 0.16;
-            }
+            <button
+              type="button"
+              className="relative h-14 w-14 mt-[26px] rounded-full bg-white/10 border border-white/15 shadow-[0_10px_24px_rgba(0,0,0,0.18)] grid place-items-center"
+              aria-label="Notificaciones"
+              title="Notificaciones"
+              onClick={() => nav("/provider/notifications")}
+            >
+              <BellIcon className="h-6 w-6 text-white" />
 
-            @media (min-width: 768px) {
-              .orby-patron {
-                background-repeat: no-repeat;
-                background-position: center top;
-                background-size: cover;
-                opacity: 0.14;
-              }
-            }
-          `}</style>
-
-          <div
-            className="absolute inset-0 pointer-events-none orby-patron"
-            style={{ backgroundImage: `url(${patronBg})` }}
-          />
-
-  {/* ✅ contenido arriba del patrón */}
-  <div className="relative z-10">
-    <div className="flex items-start justify-between gap-4">
-      <div className="min-w-0 pt-1">
-        <p className="text-[13px] text-white/70">Hola,</p>
-        <h1 className="mt-1 text-[28px] font-extrabold text-white leading-tight truncate">
-          {firstName}
-        </h1>
-        <p className="mt-1 text-[13px] font-medium text-white/70">
-          Te damos la bienvenida a <span className="lowercase">orby</span>
-        </p>
-      </div>
-
-      <button
-        type="button"
-        className="relative h-14 w-14 mt-[26px] rounded-full bg-white/10 border border-white/15 shadow-[0_10px_24px_rgba(0,0,0,0.18)] grid place-items-center"
-        aria-label="Notificaciones"
-        title="Notificaciones"
-        onClick={() => nav("/provider/notifications")}
-      >
-        <BellIcon className="h-6 w-6 text-white" />
-
-        {unread > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[20px] h-[20px] px-1 rounded-full bg-white text-[#1E2F5D] text-[10px] font-extrabold grid place-items-center shadow">
-            {unread > 99 ? "99+" : unread}
-          </span>
-        )}
-      </button>
-    </div>
-  </div>
-</div>
+              {unread > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[20px] h-[20px] px-1 rounded-full bg-white text-[#1E2F5D] text-[10px] font-extrabold grid place-items-center shadow">
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
 
         {/* Accesos (suben y pisan el azul para que quede “a la mitad”) */}
           <div className="-mt-[38px] relative z-10 grid grid-cols-2 gap-3">          
