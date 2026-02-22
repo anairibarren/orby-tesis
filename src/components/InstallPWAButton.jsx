@@ -1,4 +1,3 @@
-// src/components/InstallPWAButton.jsx
 import { useEffect, useMemo, useState } from "react";
 
 function isIOS() {
@@ -15,6 +14,11 @@ function isStandalone() {
     window.navigator.standalone === true
   );
 }
+function isChromium() {
+  const ua = window.navigator.userAgent.toLowerCase();
+  // Chrome / Edge / Opera (suficiente para nuestro caso)
+  return /chrome|crios|edg|opera|opr\//.test(ua);
+}
 
 export default function InstallPWAButton() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -25,6 +29,10 @@ export default function InstallPWAButton() {
     () => (typeof window !== "undefined" ? isAndroid() : false),
     []
   );
+  const chromium = useMemo(
+    () => (typeof window !== "undefined" ? isChromium() : false),
+    []
+  );
 
   const standalone = useMemo(
     () => (typeof window !== "undefined" ? isStandalone() : false),
@@ -32,22 +40,23 @@ export default function InstallPWAButton() {
   );
 
   useEffect(() => {
-    const onBeforeInstallPrompt = (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
+    // ✅ Tomar el prompt global si ya existe
+    setDeferredPrompt(window.__orbyDeferredPrompt || null);
 
-    const onAppInstalled = () => {
+    const onAvail = () => setDeferredPrompt(window.__orbyDeferredPrompt || null);
+    const onInstalled = () => {
       setInstalled(true);
       setDeferredPrompt(null);
     };
 
-    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-    window.addEventListener("appinstalled", onAppInstalled);
+    window.addEventListener("orby:pwa-install-available", onAvail);
+    window.addEventListener("orby:pwa-installed", onInstalled);
+    window.addEventListener("appinstalled", onInstalled);
 
     return () => {
-      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-      window.removeEventListener("appinstalled", onAppInstalled);
+      window.removeEventListener("orby:pwa-install-available", onAvail);
+      window.removeEventListener("orby:pwa-installed", onInstalled);
+      window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
 
@@ -55,72 +64,57 @@ export default function InstallPWAButton() {
 
   const btnStyle = {
     width: "100%",
-    padding: "12px 14px",
-    borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.15)",
-    background: "#fff",
-    fontWeight: 700,
+    height: 54,
+    borderRadius: 9999,
+    border: "1px solid rgba(255,255,255,0.18)",
+    background: "rgba(255,255,255,0.10)",
+    color: "#fff",
+    fontWeight: 800,
+    boxShadow: "0 14px 36px rgba(0,0,0,0.16)",
   };
 
-  // iOS: instrucciones
-  if (ios) {
-    return (
-      <div style={{ marginTop: 12 }}>
-        <button
-          type="button"
-          onClick={() =>
-            alert(
-              "En iPhone se instala asi:\n\n1) Äpretá Compartir (⬆️)\n2) Elegí “Agregar a pantalla de inicio”\n3) Confirmá “Agregar”"
-            )
+  const openInstructions = () => {
+    if (ios) {
+      alert(
+        "En iPhone:\n\n1) Tocá Compartir (⬆️)\n2) “Agregar a pantalla de inicio”\n3) Confirmá “Agregar”"
+      );
+      return;
+    }
+
+    // Android o Desktop Chromium
+    alert(
+      "Para instalar:\n\n• Android: Tocá ⋮ (3 puntitos) → “Instalar app”\n• PC (Chrome/Edge): buscá el ícono de instalación en la barra (o ⋮ → Instalar)\n\nSi no aparece todavía, recargá la página y probá de nuevo."
+    );
+  };
+
+  // ✅ Si tenemos prompt real -> instalamos directo
+  const canPrompt = !!deferredPrompt;
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <button
+        type="button"
+        onClick={async () => {
+          if (!canPrompt) return openInstructions();
+          try {
+            deferredPrompt.prompt();
+            await deferredPrompt.userChoice;
+          } finally {
+            window.__orbyDeferredPrompt = null;
+            setDeferredPrompt(null);
           }
-          style={btnStyle}
-        >
-          Descargar app (iPhone)
-        </button>
-      </div>
-    );
-  }
+        }}
+        style={btnStyle}
+      >
+        Descargar app
+      </button>
 
-  // ✅ Android/Chrome: si hay prompt -> instalar directo
-  if (deferredPrompt) {
-    return (
-      <div style={{ marginTop: 12 }}>
-        <button
-          type="button"
-          onClick={async () => {
-            try {
-              deferredPrompt.prompt();
-              await deferredPrompt.userChoice;
-            } finally {
-              setDeferredPrompt(null);
-            }
-          }}
-          style={btnStyle}
-        >
-          Descargar app
-        </button>
-      </div>
-    );
-  }
-
-  // ✅ Fallback Android: siempre mostrar CTA con guía (porque Chrome a veces no dispara beforeinstallprompt)
-  if (android) {
-    return (
-      <div style={{ marginTop: 12 }}>
-        <button
-          type="button"
-          onClick={() =>
-            alert(
-              "Para instalar en Android:\n\n1) Tocá los 3 puntitos (⋮)\n2) Elegí “Instalar app”\n3) Confirmá"
-            )
-          }
-          style={btnStyle}
-        >
-          Descargar app (Android)
-        </button>
-      </div>
-    );
-  }
-
-  return null;
+      {/* opcional: si querés, podés mostrar mini texto debajo cuando no hay prompt */}
+      {/* {!canPrompt && (android || chromium || ios) ? (
+        <p style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
+          Si no aparece el pop-up, instalá desde el menú del navegador.
+        </p>
+      ) : null} */}
+    </div>
+  );
 }

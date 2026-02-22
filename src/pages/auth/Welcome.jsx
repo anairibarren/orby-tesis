@@ -1,67 +1,10 @@
 // src/pages/auth/Welcome.jsx
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import logo from "../../assets/img/logo-claro.png";
 import InstallPWAButton from "../../components/InstallPWAButton";
 
 export default function Welcome() {
-  // ✅ PWA install
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [canInstall, setCanInstall] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
-
-  useEffect(() => {
-    // detectar si ya está instalada (PWA)
-    const checkInstalled = () => {
-      const standalone =
-        window.matchMedia?.("(display-mode: standalone)")?.matches ||
-        window.navigator?.standalone === true; // iOS
-      setIsInstalled(!!standalone);
-    };
-
-    checkInstalled();
-
-    const onBeforeInstallPrompt = (e) => {
-      // Chrome/Edge/Android
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setCanInstall(true);
-    };
-
-    const onAppInstalled = () => {
-      setIsInstalled(true);
-      setCanInstall(false);
-      setDeferredPrompt(null);
-    };
-
-    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-    window.addEventListener("appinstalled", onAppInstalled);
-
-    // por si cambia display-mode
-    const mql = window.matchMedia?.("(display-mode: standalone)");
-    const onMqlChange = () => checkInstalled();
-    mql?.addEventListener?.("change", onMqlChange);
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-      window.removeEventListener("appinstalled", onAppInstalled);
-      mql?.removeEventListener?.("change", onMqlChange);
-    };
-  }, []);
-
-  async function handleInstall() {
-    try {
-      if (!deferredPrompt) return;
-      deferredPrompt.prompt();
-      await deferredPrompt.userChoice; // accepted / dismissed
-      setDeferredPrompt(null);
-      setCanInstall(false);
-    } catch {
-      // no-op
-    }
-  }
-
-    return (
+  return (
     <div className="min-h-screen px-6 relative overflow-hidden bg-[#1E2F5D]">
       <div
         className="min-h-screen relative"
@@ -107,8 +50,7 @@ export default function Welcome() {
               >
                 Crear cuenta
               </Link>
-
-          <InstallPWAButton />
+              <InstallPWAButton />
             </div>
           </div>
         </div>
