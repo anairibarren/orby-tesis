@@ -62,12 +62,11 @@ export default function App() {
   }, [loading, profileLoading, user]);
 
   // ✅ Body background switch:
-  // - Azul SOLO en: Auth + Home (client/provider) + Splash
-  // - Gris en el resto
+  // - Azul SOLO en: Auth + Splash
+  // - Gris en todo lo demás (incluye Home)
   useEffect(() => {
     const p = location.pathname;
 
-    // ✅ Auth routes (todas azules)
     const isAuth =
       p === "/" ||
       p === "/login" ||
@@ -76,11 +75,7 @@ export default function App() {
       p === "/forgot-password" ||
       p === "/reset-password";
 
-    // ✅ SOLO home exacto (no todo /client/*)
-    const isClientHome = p === "/client" || p === "/client/";
-    const isProviderHome = p === "/provider" || p === "/provider/";
-
-    const shouldBeBlue = showSplash || isAuth || isClientHome || isProviderHome;
+    const shouldBeBlue = showSplash || isAuth;
 
     document.body.classList.toggle("bg-orby", shouldBeBlue);
 
@@ -255,7 +250,7 @@ export default function App() {
           }
         />
 
-        {/* ✅ Notificaciones (si las usás directo por acá) */}
+        {/* ✅ Notificaciones */}
         <Route
           path="/client/notifications"
           element={

@@ -10,19 +10,20 @@
 
 html, body, #root {
   height: 100%;
+  background: #F5F5F5;
 }
 
 html{
   -webkit-text-size-adjust: 100%;
 }
 
-body {
-  margin: 0;
-  background: #F5F5F5; 
+html, body, #root {
+  height: 100%;
+  background: #F5F5F5;
 }
 
 body.bg-orby {
-  background: #1E2F5D; 
+  background: #1E2F5D;
 }
 
 /* inicio de sesion */
