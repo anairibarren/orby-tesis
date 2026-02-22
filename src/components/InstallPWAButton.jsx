@@ -1,9 +1,12 @@
-
 import { useEffect, useMemo, useState } from "react";
 
 function isIOS() {
   const ua = window.navigator.userAgent.toLowerCase();
   return /iphone|ipad|ipod/.test(ua);
+}
+function isAndroid() {
+  const ua = window.navigator.userAgent.toLowerCase();
+  return /android/.test(ua);
 }
 function isStandalone() {
   return (
@@ -17,16 +20,22 @@ export default function InstallPWAButton() {
   const [installed, setInstalled] = useState(false);
 
   const ios = useMemo(() => (typeof window !== "undefined" ? isIOS() : false), []);
+  const android = useMemo(
+    () => (typeof window !== "undefined" ? isAndroid() : false),
+    []
+  );
+
   const standalone = useMemo(
     () => (typeof window !== "undefined" ? isStandalone() : false),
     [installed]
   );
 
   useEffect(() => {
-    // Android/Chrome: capturamos el prompt
     const onBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
+      // debug útil:
+      // console.log("beforeinstallprompt fired");
     };
 
     const onAppInstalled = () => {
@@ -43,10 +52,18 @@ export default function InstallPWAButton() {
     };
   }, []);
 
-  // Si ya está instalada, no mostramos nada
   if (standalone) return null;
 
-  // iOS: no hay prompt -> mostramos instrucciones
+  const commonBtnStyle = {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(0,0,0,0.15)",
+    background: "#fff",
+    fontWeight: 700,
+  };
+
+  // iOS: instrucciones
   if (ios) {
     return (
       <div style={{ marginTop: 12 }}>
@@ -57,14 +74,7 @@ export default function InstallPWAButton() {
               "En iPhone se instala así:\n\n1) Tocá Compartir (⬆️)\n2) Elegí “Agregar a pantalla de inicio”\n3) Confirmá “Agregar”"
             )
           }
-          style={{
-            width: "100%",
-            padding: "12px 14px",
-            borderRadius: 14,
-            border: "1px solid rgba(0,0,0,0.15)",
-            background: "#fff",
-            fontWeight: 700,
-          }}
+          style={commonBtnStyle}
         >
           Descargar app (iPhone)
         </button>
@@ -72,32 +82,47 @@ export default function InstallPWAButton() {
     );
   }
 
-  // Android/Chrome: solo mostramos si tenemos deferredPrompt
-  if (!deferredPrompt) return null;
+  // Android/Chrome: si tenemos prompt -> instalamos “directo”
+  if (deferredPrompt) {
+    return (
+      <div style={{ marginTop: 12 }}>
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              deferredPrompt.prompt();
+              await deferredPrompt.userChoice;
+            } finally {
+              setDeferredPrompt(null);
+            }
+          }}
+          style={commonBtnStyle}
+        >
+          Descargar app
+        </button>
+      </div>
+    );
+  }
 
-  return (
-    <div style={{ marginTop: 12 }}>
-      <button
-        type="button"
-        onClick={async () => {
-          try {
-            deferredPrompt.prompt();
-            await deferredPrompt.userChoice;
-          } finally {
-            setDeferredPrompt(null);
+  // ✅ Fallback Android: mostrar guía (porque Chrome a veces no da beforeinstallprompt)
+  if (android) {
+    return (
+      <div style={{ marginTop: 12 }}>
+        <button
+          type="button"
+          onClick={() =>
+            alert(
+              "Para instalar en Android:\n\n1) Tocá los 3 puntitos (⋮)\n2) Elegí “Instalar app” o “Agregar a pantalla principal”\n3) Confirmá"
+            )
           }
-        }}
-        style={{
-          width: "100%",
-          padding: "12px 14px",
-          borderRadius: 14,
-          border: "1px solid rgba(0,0,0,0.15)",
-          background: "#fff",
-          fontWeight: 700,
-        }}
-      >
-        Descargar app
-      </button>
-    </div>
-  );
+          style={commonBtnStyle}
+        >
+          Descargar app (Android)
+        </button>
+      </div>
+    );
+  }
+
+  // Otros casos: no mostramos nada
+  return null;
 }

@@ -71,19 +71,23 @@ const CATEGORIES = [
 
 function CategoryIcon({ name }) {
   const ICONS = {
-    tools: new URL("../../assets/img/icono1.png", import.meta.url).href,
-    school: new URL("../../assets/img/icono2.png", import.meta.url).href,
-    lotus: new URL("../../assets/img/icono3.png", import.meta.url).href,
-    party: new URL("../../assets/img/icono4.png", import.meta.url).href,
+    tools: "tabler:settings",
+    school: "tabler:school",
+    lotus: "lucide-lab:flower-lotus",
+    party: "bx:party",
   };
 
   return (
-    <img
-      src={ICONS[name]}
-      alt=""
-      className="h-[25px] w-[25px] object-contain shrink-0 select-none"
-      draggable="false"
-    />
+    <div
+      className="h-[36px] w-[36px] rounded-full grid place-items-center shrink-0"
+      style={{ background: "rgba(44,72,148,0.18)" }} // #2C4894 con baja opacidad
+    >
+      <IconifyIcon
+        icon={ICONS[name]}
+        className="h-[21px] w-[21px]"
+        style={{ color: "#1E2F5D" }}
+      />
+    </div>
   );
 }
 
@@ -532,9 +536,7 @@ const { matchedServices, matchedProviders } = useMemo(() => {
                           className="rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] px-3.5 py-4 text-left active:scale-[0.99] transition"
                         >
                           <div className="flex items-center gap-2">
-                            <span className="h-9 w-9 rounded-full bg-[#DDE6F7] grid place-items-center shrink-0">
-                              <CategoryIcon name={c.icon} />
-                            </span>
+                            <CategoryIcon name={c.icon} />
 
                             <p
                               className={[
