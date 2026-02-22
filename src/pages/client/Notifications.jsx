@@ -116,8 +116,12 @@ function splitWhenAndDescription(body) {
   return { whenLine: "", descLine: s };
 }
 
-function getNotiUI(n) {
+  function getNotiUI(n) {
   const type = String(n?.type || "").toLowerCase();
+
+  if (type === "appointment_reminder") {
+  return { icon: "mdi:clock-alert-outline", bg: ICON_BG_BLUE, fg: ICON_FG_BLUE };
+}
 
   if (type.includes("cancel")) {
     return { icon: "mdi:calendar-remove-outline", bg: ICON_BG_RED, fg: ICON_FG_RED };
@@ -387,18 +391,46 @@ export default function ClientNotifications() {
     try {
       if (!n?.id) return;
 
-      // canceladas: no navegan (sin info)
-      if (isCancelledNoti(n)) {
-        if (!n.is_read) await markNotificationRead(n.id, true);
+      // 1) marcar leída siempre que se toque
+      if (!n.is_read) await markNotificationRead(n.id, true);
+
+      const rid = n?.metadata?.request_id;
+      const type = String(n?.type || "").toLowerCase();
+
+      // ✅ NUEVO: si es mensaje nuevo -> ir directo al chat
+      if (type === "message_new" && rid) {
+        const ok = await requestExistsForMe(rid);
+        if (!ok) {
+          toast.warning("Solicitud no disponible", "La solicitud ya no existe o no tenés permisos para verla.");
+          refresh({ silent: true });
+          return;
+        }
+        nav(`/client/requests/${rid}/chat`);
         refresh({ silent: true });
         return;
       }
 
-      if (!n.is_read) await markNotificationRead(n.id, true);
+      // ✅ NUEVO: recordatorio de turno -> ir a la solicitud
+      if (type === "appointment_reminder" && rid) {
+        const ok = await requestExistsForMe(rid);
+        if (!ok) {
+          toast.warning("Solicitud no disponible", "La solicitud ya no existe o no tenés permisos para verla.");
+          refresh({ silent: true });
+          return;
+        }
+        nav("/client/requests", { state: { focusRequestId: rid } });
+        refresh({ silent: true });
+        return;
+      }
 
-      const rid = n?.metadata?.request_id;
+      // 2) Si es cancelada => abrir detalle
+      if (isCancelledNoti(n)) {
+        openDetail(n);
+        refresh({ silent: true });
+        return;
+      }
 
-      // ✅ si no existe / no hay permisos => mensaje y NO navegamos
+      // 3) Si tiene request_id -> tu flujo actual
       if (rid) {
         const ok = await requestExistsForMe(rid);
         if (!ok) {
@@ -406,12 +438,34 @@ export default function ClientNotifications() {
           refresh({ silent: true });
           return;
         }
-        nav(`/client/requests/${rid}`);
+
+        nav("/client/requests", { state: { focusRequestId: rid } });
+      } else {
+        openDetail(n);
       }
 
       refresh({ silent: true });
     } catch (e) {
       toast.error("Error", e?.message || "No se pudo abrir/marcar como leída.");
+    }
+  }
+
+  //  marcar todas como leídas
+  async function markAllAsRead() {
+    try {
+      const unread = (items || []).filter((n) => !n.is_read);
+      if (unread.length === 0) return;
+
+      // Optimista: actualiza UI al toque
+      setItems((prev) => (prev || []).map((n) => ({ ...n, is_read: true })));
+
+      // Marcar en DB
+      await Promise.allSettled(unread.map((n) => markNotificationRead(n.id, true)));
+
+      refresh({ silent: true });
+    } catch (e) {
+      toast.error("Error", e?.message || "No se pudieron marcar como leídas.");
+      refresh({ silent: true });
     }
   }
 
@@ -439,6 +493,21 @@ export default function ClientNotifications() {
     setDetailOpen(false);
     setDetailNoti(null);
   }
+
+  async function goToRequestFromDetail() {
+  const rid = detailNoti?.metadata?.request_id;
+  if (!rid) return;
+
+  const ok = await requestExistsForMe(rid);
+  if (!ok) {
+    toast.warning("Solicitud no disponible", "La solicitud ya no existe o no tenés permisos para verla.");
+    return;
+  }
+
+  refresh({ silent: true });
+  closeDetail();
+  nav("/client/requests", { state: { focusRequestId: rid } });
+}
 
   const grouped = useMemo(() => {
     const arr = [...(items || [])].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -489,6 +558,17 @@ export default function ClientNotifications() {
               </span>
             )}
           </div>
+
+          {unreadCount > 0 && (
+            <button
+              type="button"
+              onClick={markAllAsRead}
+              className="absolute right-0 h-11 w-11 rounded-full bg-white border border-black/10 shadow-[0_4px_10px_rgba(0,0,0,0.06)] grid place-items-center active:scale-[0.98] transition"
+              aria-label="Marcar todas como leídas"
+              title="Marcar todas como leídas"
+            >
+          <IconifyIcon icon="lucide:clipboard-check" className="h-5 w-5 text-black/60" />            </button>
+          )}
         </div>
 
         {err && <p className="mt-4 text-sm text-red-600">{err}</p>}
@@ -677,7 +757,21 @@ export default function ClientNotifications() {
                 </div>
               </div>
 
-              <div className="h-5" />
+              
+
+                {detailNoti?.metadata?.request_id ? (
+                <div className="mt-5">
+                  <button
+                    type="button"
+                    onClick={goToRequestFromDetail}
+                    className="w-full h-12 rounded-full bg-[#1E2F5D] text-white text-[13px] font-semibold shadow-[0_10px_22px_rgba(30,47,93,0.22)] active:scale-[0.98] transition"
+                  >
+                    Ver solicitud
+                  </button>
+                </div>
+              ) : null}
+
+            <div className="h-5" />
             </motion.div>
           </motion.div>
         )}

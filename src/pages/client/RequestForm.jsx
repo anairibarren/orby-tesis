@@ -5,6 +5,7 @@ import { Icon as IconifyIcon } from "@iconify/react";
 import { supabase } from "../../services/supabase";
 import { useAuth } from "../../hooks/useAuth";
 import { useToast } from "../../components/Toast";
+import Loading from "../../components/Loading";
 
 function draftKey(id) {
   return `orby_request_draft_${id}`;
@@ -17,7 +18,6 @@ function isMissingColumn(err, col) {
 
 /**
  * Barrios / localidades dentro del Partido de Vicente López
- * (ajustalo si en tu app manejás otros nombres exactos)
  */
 const VICENTE_LOPEZ_NEIGHBORHOODS = [
   "Vicente López",
@@ -32,8 +32,7 @@ const VICENTE_LOPEZ_NEIGHBORHOODS = [
 
 const PAYMENT_METHODS = [
   { key: "cash", label: "Efectivo", desc: "Pagás al finalizar", icon: "mdi:cash" },
-  { key: "mp", label: "Mercado Pago", desc: "Pagás en la app", icon: "mdi:credit-card-outline" },
-  { key: "card", label: "Tarjeta", desc: "Próximamente", icon: "mdi:credit-card-outline", disabled: true },
+  { key: "mp", label: "Mercado Pago", desc: "Pagás al prestador", icon: "mdi:credit-card-outline" },
 ];
 
 function CardShell({ children, className = "" }) {
@@ -85,7 +84,6 @@ function NeighborhoodSelect({ label = "Barrio", value, onChange, setErr }) {
   const [query, setQuery] = useState(value || "");
   const [activeIdx, setActiveIdx] = useState(-1);
 
-  // sync externo -> input
   useEffect(() => {
     setQuery(value || "");
   }, [value]);
@@ -129,10 +127,8 @@ function NeighborhoodSelect({ label = "Barrio", value, onChange, setErr }) {
 
     const hit = normalizedList.find((n) => n.norm === q.toLowerCase());
     if (hit) {
-      // normalizamos al label exacto
       commit(hit.raw);
     } else {
-      // no permitir texto libre
       setErr?.("Elegí un barrio válido de Vicente López.");
       onChange?.("");
       setQuery("");
@@ -164,11 +160,8 @@ function NeighborhoodSelect({ label = "Barrio", value, onChange, setErr }) {
             setQuery(e.target.value);
             setOpen(true);
             setActiveIdx(-1);
-            // no seteamos value directo: solo se confirma con selección/validación
           }}
-          onFocus={() => {
-            setOpen(true);
-          }}
+          onFocus={() => setOpen(true)}
           onKeyDown={(e) => {
             if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
               setOpen(true);
@@ -199,7 +192,6 @@ function NeighborhoodSelect({ label = "Barrio", value, onChange, setErr }) {
             }
           }}
           onBlur={() => {
-            // deja clickear opción sin que se cierre antes
             setTimeout(() => {
               if (!wrapRef.current) return;
               const active = document.activeElement;
@@ -227,7 +219,6 @@ function NeighborhoodSelect({ label = "Barrio", value, onChange, setErr }) {
           <IconifyIcon icon="mdi:chevron-down" className="h-5 w-5" />
         </button>
 
-        {/* Dropdown */}
         {open && (
           <div className="absolute left-0 right-0 mt-2 z-20">
             <div className="rounded-[16px] bg-white border border-black/10 shadow-[0_18px_32px_rgba(0,0,0,0.10)] overflow-hidden">
@@ -272,7 +263,6 @@ function NeighborhoodSelect({ label = "Barrio", value, onChange, setErr }) {
 
       <div className="mt-3 h-[1px] w-full bg-black/10" />
 
-      {/* hint visual */}
       {!isValidValue && String(value || "").trim() ? (
         <p className="mt-2 text-[12px] text-red-600">Elegí una opción válida del selector.</p>
       ) : null}
@@ -341,6 +331,207 @@ function moneyARS(n) {
   return `$${num.toLocaleString("es-AR")}`;
 }
 
+/* ---------------- Address Autocomplete (OSM / Nominatim) ---------------- */
+function AddressAutocomplete({ label = "Dirección exacta", value, onChange, setErr }) {
+  const wrapRef = useRef(null);
+  const [query, setQuery] = useState(value || "");
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [items, setItems] = useState([]);
+  const [activeIdx, setActiveIdx] = useState(-1);
+
+  // Sync externo -> input
+  useEffect(() => {
+    setQuery(value || "");
+  }, [value]);
+
+  // Cierra al click afuera
+  useEffect(() => {
+    function onDown(e) {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  // Debounce + fetch Nominatim
+  useEffect(() => {
+    const q = String(query || "").trim();
+    if (!open) return;
+    if (q.length < 3) {
+      setItems([]);
+      return;
+    }
+
+    const t = setTimeout(async () => {
+      try {
+        setLoading(true);
+
+        const search = new URLSearchParams({
+          format: "jsonv2",
+          addressdetails: "1",
+          limit: "6",
+          countrycodes: "ar",
+          q: `${q}, Vicente López, Buenos Aires`,
+        });
+
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?${search.toString()}`, {
+          headers: {
+            "Accept-Language": "es-AR,es;q=0.9",
+          },
+        });
+
+        const data = await res.json();
+
+        const filtered = (Array.isArray(data) ? data : []).filter((x) => {
+          const a = x?.address || {};
+          const county = String(a.county || "").toLowerCase();
+          const city = String(a.city || a.town || a.village || "").toLowerCase();
+          const suburb = String(a.suburb || a.neighbourhood || a.city_district || "").toLowerCase();
+          const display = String(x.display_name || "").toLowerCase();
+
+          const hitCounty = county.includes("vicente lópez") || county.includes("vicente lopez");
+          const hitCity = city.includes("vicente lópez") || city.includes("vicente lopez");
+          const hitSuburb = suburb.includes("vicente lópez") || suburb.includes("vicente lopez");
+          const hitDisplay = display.includes("vicente lópez") || display.includes("vicente lopez");
+
+          return hitCounty || hitCity || hitSuburb || hitDisplay;
+        });
+
+        setItems(filtered);
+        setActiveIdx(-1);
+      } catch {
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 450);
+
+    return () => clearTimeout(t);
+  }, [query, open]);
+
+  function shortLabel(opt) {
+    const a = opt?.address || {};
+
+    const road = a.road || a.pedestrian || a.footway || a.cycleway || "";
+    const house = a.house_number || "";
+    const suburb = a.suburb || a.neighbourhood || a.city_district || "";
+    const city = a.city || a.town || a.village || "";
+
+    const line1 = [road, house].filter(Boolean).join(" ").trim();
+    const line2 = [suburb || city].filter(Boolean).join("");
+
+    if (!line1) return String(opt?.display_name || "").split(",").slice(0, 2).join(",").trim();
+    return line2 ? `${line1}, ${line2}` : line1;
+  }
+
+  function commitFromOpt(opt) {
+    const v = shortLabel(opt);
+    setErr?.("");
+    onChange?.(v);
+    setQuery(v);
+    setOpen(false);
+    setActiveIdx(-1);
+  }
+
+  return (
+    <div className="py-4" ref={wrapRef}>
+      <p className="text-[12px] font-semibold text-black/55">{label}</p>
+
+      <div className="relative mt-2">
+        <input
+          value={query}
+          onChange={(e) => {
+            setErr?.("");
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(e) => {
+            if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+              setOpen(true);
+              return;
+            }
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setActiveIdx((i) => Math.min((items.length || 1) - 1, i + 1));
+            }
+            if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setActiveIdx((i) => Math.max(0, i - 1));
+            }
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (open && items.length) {
+                const idx = activeIdx >= 0 ? activeIdx : 0;
+                const opt = items[idx];
+                if (opt) commitFromOpt(opt);
+              }
+            }
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setOpen(false);
+            }
+          }}
+          placeholder="Ej: Av. Maipú 1234, Olivos"
+          className="w-full bg-transparent text-[14px] text-[#3D3D3D] outline-none placeholder:text-black/25 pr-10"
+          inputMode="text"
+          autoComplete="off"
+        />
+
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full grid place-items-center text-black/45">
+          {loading ? (
+            <span className="h-4 w-4 rounded-full border-2 border-black/20 border-t-black/50 animate-spin" />
+          ) : (
+            <IconifyIcon icon="mdi:map-marker-outline" className="h-5 w-5" />
+          )}
+        </div>
+
+        {open && (items.length > 0 || query.trim().length >= 3) && (
+          <div className="absolute left-0 right-0 mt-2 z-20">
+            <div className="rounded-[16px] bg-white border border-black/10 shadow-[0_18px_32px_rgba(0,0,0,0.10)] overflow-hidden">
+              <div className="max-h-56 overflow-auto">
+                {items.length ? (
+                  items.map((opt, idx) => {
+                    const active = idx === activeIdx;
+                    return (
+                      <button
+                        key={`${opt.place_id}-${idx}`}
+                        type="button"
+                        onMouseEnter={() => setActiveIdx(idx)}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => commitFromOpt(opt)}
+                        className={[
+                          "w-full text-left px-4 py-3 text-[13px] transition",
+                          active ? "bg-[#1E2F5D]/[0.06]" : "bg-white",
+                          "hover:bg-black/[0.02]",
+                        ].join(" ")}
+                      >
+                        <p className="font-semibold text-[#3D3D3D] line-clamp-2">{shortLabel(opt)}</p>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="px-4 py-4 text-[13px] text-black/50">No hay coincidencias en Vicente López.</div>
+                )}
+              </div>
+
+              <div className="px-4 py-3 border-t border-black/10 bg-black/[0.02]">
+                <p className="text-[12px] text-black/45">
+                  Sugerencias limitadas a <b>Vicente López</b>.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 h-[1px] w-full bg-black/10" />
+    </div>
+  );
+}
+
 export default function ClientRequestForm() {
   const nav = useNavigate();
   const toast = useToast();
@@ -366,7 +557,6 @@ export default function ClientRequestForm() {
   const [neighborhood, setNeighborhood] = useState("");
   const [address, setAddress] = useState("");
 
-  // precarga barrio (draft > profile)
   useEffect(() => {
     if (draft) {
       if (draft?.description) setDescription(draft.description);
@@ -509,7 +699,7 @@ export default function ClientRequestForm() {
     }
   }
 
-  if (loading) return <div className="min-h-screen bg-[#F5F5F5] p-6">Cargando…</div>;
+  if (loading) return <Loading />;
 
   if (err && !ps) {
     return (
@@ -582,21 +772,16 @@ export default function ClientRequestForm() {
               rows={5}
             />
 
-            <NeighborhoodSelect
-              label="Barrio"
-              value={neighborhood}
-              onChange={(v) => setNeighborhood(v)}
-              setErr={setErr}
-            />
+            <NeighborhoodSelect label="Barrio" value={neighborhood} onChange={(v) => setNeighborhood(v)} setErr={setErr} />
 
-            <Field
+            <AddressAutocomplete
               label="Dirección exacta"
               value={address}
-              onChange={(e) => {
+              onChange={(v) => {
                 setErr("");
-                setAddress(e.target.value);
+                setAddress(v);
               }}
-              placeholder="Ej: Av. Maipú 1234, 6B (entre...)"
+              setErr={setErr}
             />
 
             <div className="pt-4">

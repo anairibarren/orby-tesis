@@ -7,7 +7,11 @@ import { useToast } from "../../components/Toast";
 import { supabase } from "../../services/supabase";
 import { Icon as IconifyIcon } from "@iconify/react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ensureAppointmentForRequest, confirmAppointmentByRequestId, cancelAppointmentByRequestId } from "../../services/appointments";
+import {
+  ensureAppointmentForRequest,
+  confirmAppointmentByRequestId,
+  cancelAppointmentByRequestId,
+} from "../../services/appointments";
 
 /* ---------------- utils ---------------- */
 const norm = (v) => String(v ?? "").toLowerCase();
@@ -32,13 +36,38 @@ function formatTurno(preferred_datetime) {
   const time = d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
   return { date, time, ts: d.getTime() };
 }
+// ✅ ocultar cancelar cuando ya empezó
+function hasTurnStarted(preferred_datetime) {
+  const ts = safeTS(preferred_datetime);
+  if (!Number.isFinite(ts)) return false;
+  return Date.now() >= ts;
+}
+
 function formatMoneyARS(n) {
   const num = Number(n);
   if (!Number.isFinite(num)) return null;
   return `$${num.toLocaleString("es-AR")}`;
 }
+
+function formatThousandsARS(value) {
+  const digits = String(value ?? "").replace(/\D/g, ""); // solo números
+  if (!digits) return "";
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+function parseThousandsARS(value) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  const n = Number(digits);
+  return Number.isFinite(n) ? n : NaN;
+}
+
 function getPricingType(r) {
-  return r?.catalog?.pricing_type || r?.provider_service?.service_catalog?.pricing_type || r?.service_catalog?.pricing_type || null;
+  return (
+    r?.catalog?.pricing_type ||
+    r?.provider_service?.service_catalog?.pricing_type ||
+    r?.service_catalog?.pricing_type ||
+    null
+  );
 }
 function getFixedPrice(r) {
   return (
@@ -52,7 +81,6 @@ function getFixedPrice(r) {
   );
 }
 
-/** ✅ MÁS ROBUSTO: intentar sacar nombre real del cliente */
 function getClientName(r) {
   const candidates = [
     r?.client?.full_name,
@@ -74,39 +102,45 @@ function getClientName(r) {
   return cleaned[0] || candidates[0] || "Sin nombre";
 }
 
-function formatWhen(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleString("es-AR", {
-    weekday: "short",
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-// ✅ limpia descripción para card: solo texto, sin bloque de ubicación
+// ✅ limpia descripción para card
 function cleanDescForCard(desc) {
   const raw = String(desc || "").trim();
   if (!raw) return "";
 
-  // corta desde "📍 Ubicación:" si existe
   const marker = "📍 Ubicación:";
   const idx = raw.indexOf(marker);
   const base = idx === -1 ? raw : raw.slice(0, idx).trim();
 
-  // por si igualmente vienen líneas sueltas
   const lines = base
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean)
     .filter((l) => {
       const low = l.toLowerCase();
-      return !low.startsWith("ubicación:") && !low.startsWith("barrio:") && !low.startsWith("direccion:") && !low.startsWith("dirección:");
+      return (
+        !low.startsWith("ubicación:") &&
+        !low.startsWith("barrio:") &&
+        !low.startsWith("direccion:") &&
+        !low.startsWith("dirección:")
+      );
     });
 
   return lines.join("\n").trim();
+}
+
+function isNotFoundLike(e) {
+  const msg = String(e?.message || "").toLowerCase();
+  return (
+    msg.includes("not found") ||
+    msg.includes("no rows") ||
+    msg.includes("0 rows") ||
+    msg.includes("does not exist") ||
+    msg.includes("ya no existe")
+  );
+}
+function isRlsLike(e) {
+  const msg = String(e?.message || "").toLowerCase();
+  return msg.includes("rls") || msg.includes("permission") || msg.includes("permisos") || msg.includes("policy");
 }
 
 /* ---------------- constants ---------------- */
@@ -118,20 +152,25 @@ const STATUS = {
   RECHAZADA: "rechazada",
   CANCELADA: "cancelada",
   COMPLETADA: "completada",
+  INCUMPLIDA: "incumplida",
 };
 
 const FILTERS = {
   TODAS: "todas",
   PENDIENTES: "pendientes",
   AGENDADAS: "agendadas",
+  INCUMPLIDAS: "incumplidas", // ✅ nuevo
   CANCELADAS: "canceladas",
   RECHAZADAS: "rechazadas",
+  COMPLETADAS: "completadas",
 };
 
 const PENDIENTES_SET = new Set([STATUS.SOLICITADA, STATUS.COTIZADA, STATUS.ACEPTADA]);
 const AGENDADAS_SET = new Set([STATUS.AGENDADA]);
+const INCUMPLIDAS_SET = new Set([STATUS.INCUMPLIDA]); // ✅ nuevo
 const CANCELADAS_SET = new Set([STATUS.CANCELADA]);
 const RECHAZADAS_SET = new Set([STATUS.RECHAZADA]);
+const COMPLETADAS_SET = new Set([STATUS.COMPLETADA]);
 
 /* ---------------- UI atoms ---------------- */
 function IconButton({ onClick, title, children, className = "", disabled = false }) {
@@ -163,15 +202,19 @@ function statusStyle(status) {
     rechazada: "bg-[#FFE6EA] text-[#9B1C1C] border border-[#FFC9D3]",
     cancelada: "bg-black/[0.05] text-black/70 border border-black/10",
     completada: "bg-[#E8FFF2] text-[#0F6B3D] border border-[#CFF4E3]",
+    incumplida: "bg-[#FFE6EA] text-[#9B1C1C] border border-[#FFC9D3]",
   };
   return map[s] || "bg-black/[0.05] text-black/70 border border-black/10";
 }
 
-
-
 function StatusBadge({ status }) {
   return (
-    <span className={["inline-flex items-center rounded-full px-3 py-1 text-[12px] font-semibold capitalize", statusStyle(status)].join(" ")}>
+    <span
+      className={[
+        "inline-flex items-center rounded-full px-3 py-1 text-[12px] font-semibold capitalize",
+        statusStyle(status),
+      ].join(" ")}
+    >
       {status || "—"}
     </span>
   );
@@ -184,11 +227,18 @@ function FilterChip({ active, label, count, onClick }) {
       onClick={onClick}
       className={[
         "flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-semibold transition active:scale-[0.98]",
-        active ? "bg-[#1E2F5D] text-white shadow-[0_6px_18px_rgba(30,47,93,0.18)]" : "bg-white text-[#3D3D3D] shadow-[0_4px_12px_rgba(0,0,0,0.06)]",
+        active
+          ? "bg-[#1E2F5D] text-white shadow-[0_6px_18px_rgba(30,47,93,0.18)]"
+          : "bg-white text-[#3D3D3D] shadow-[0_4px_12px_rgba(0,0,0,0.06)]",
       ].join(" ")}
     >
       <span>{label}</span>
-      <span className={["rounded-full px-2 py-[2px] text-[12px]", active ? "bg-white/20 text-white" : "bg-black/[0.04] text-black/50"].join(" ")}>
+      <span
+        className={[
+          "rounded-full px-2 py-[2px] text-[12px]",
+          active ? "bg-white/20 text-white" : "bg-black/[0.04] text-black/50",
+        ].join(" ")}
+      >
         {count}
       </span>
     </button>
@@ -210,12 +260,7 @@ function RequestCardSkeleton() {
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <div className="h-6 w-[150px] rounded-full bg-black/10" />
-        <div className="h-6 w-[120px] rounded-full bg-black/10" />
-      </div>
-
-      <div className="mt-3 h-4 w-[90%] rounded bg-black/10" />
+      <div className="mt-4 h-4 w-[90%] rounded bg-black/10" />
       <div className="mt-3 h-11 w-full rounded-full bg-black/10" />
     </div>
   );
@@ -223,16 +268,17 @@ function RequestCardSkeleton() {
 
 function EmptyState({ title, desc }) {
   return (
-    <div className="w-full rounded-[22px] bg-white border border-black/10 shadow-[0_10px_22px_rgba(0,0,0,0.06)] p-5">
-      <div className="flex items-start gap-3">
-        <span className="h-11 w-11 rounded-full bg-black/[0.04] grid place-items-center shrink-0">
-          <IconifyIcon icon="mdi:inbox-outline" className="h-6 w-6 text-black/35" />
-        </span>
-
-        <div className="min-w-0">
-          <p className="text-[14px] font-extrabold text-[#3D3D3D]">{title}</p>
-          <p className="mt-1 text-[12px] text-black/45">{desc}</p>
+    <div className="w-full pt-40 py-10">
+      <div className="flex flex-col items-center text-center">
+        <div className="h-16 w-16 rounded-2xl bg-black/[0.04] grid place-items-center">
+          <IconifyIcon icon="mdi:bell-outline" className="h-7 w-7 text-black/35" />
         </div>
+
+        <p className="mt-5 text-[16px] font-extrabold text-[#3D3D3D]">{title}</p>
+
+        {desc ? (
+          <p className="mt-2 text-[12px] text-black/40 max-w-[260px] leading-snug">{desc}</p>
+        ) : null}
       </div>
     </div>
   );
@@ -243,7 +289,12 @@ function Sheet({ open, onClose, children }) {
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-[9999]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+        <motion.div
+          className="fixed inset-0 z-[9999]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
           <button type="button" className="absolute inset-0 bg-black/40" onClick={onClose} aria-label="Cerrar" />
 
           <motion.div
@@ -254,7 +305,9 @@ function Sheet({ open, onClose, children }) {
             transition={{ type: "spring", stiffness: 380, damping: 34 }}
           >
             <div className="mx-auto w-full max-w-[520px] px-4 pb-6">
-              <div className="rounded-[28px] bg-white shadow-2xl overflow-hidden border border-black/10">{children}</div>
+              <div className="rounded-[28px] bg-white shadow-2xl overflow-hidden border border-black/10">
+                {children}
+              </div>
             </div>
           </motion.div>
         </motion.div>
@@ -370,14 +423,22 @@ function ConfirmDeleteSheet({ open, title, desc, onClose, onConfirm, busy }) {
 /* ---------------- permissions ---------------- */
 function canRejectWithStatus(status) {
   const s = norm(status);
-  return s !== STATUS.AGENDADA && s !== STATUS.CANCELADA && s !== STATUS.RECHAZADA && s !== STATUS.COMPLETADA;
+  return (
+    s !== STATUS.AGENDADA &&
+    s !== STATUS.CANCELADA &&
+    s !== STATUS.RECHAZADA &&
+    s !== STATUS.COMPLETADA &&
+    s !== STATUS.INCUMPLIDA
+  );
 }
+
 function canCancelScheduledWithStatus(status) {
   return norm(status) === STATUS.AGENDADA;
 }
+
 function canDeleteWithStatus(status) {
   const s = norm(status);
-  return s === STATUS.CANCELADA || s === STATUS.RECHAZADA;
+  return s === STATUS.CANCELADA || s === STATUS.RECHAZADA; 
 }
 
 /* ---------------- page ---------------- */
@@ -391,7 +452,8 @@ export default function Requests() {
   const [err, setErr] = useState("");
 
   const [filter, setFilter] = useState(FILTERS.TODAS);
-  const [quoteMap, setQuoteMap] = useState({}); // requestId -> amount
+  const [didAutoPickInc, setDidAutoPickInc] = useState(false); // ✅ nuevo: solo 1 vez
+  const [quoteMap, setQuoteMap] = useState({})
 
   const [rejectOpen, setRejectOpen] = useState(false);
   const [selectedReq, setSelectedReq] = useState(null);
@@ -405,10 +467,9 @@ export default function Requests() {
 
   const [busyId, setBusyId] = useState(null);
 
-  const [clientNameMap, setClientNameMap] = useState({}); // clientId -> full_name
+  const [clientNameMap, setClientNameMap] = useState({});
 
-  // ✅ FIX: evita que reaparezca "Confirmar turno" por refresh/realtime con estado viejo
-  const [optimisticStatus, setOptimisticStatus] = useState({}); // requestId -> status
+  const [optimisticStatus, setOptimisticStatus] = useState({});
 
   const selectedName = useMemo(() => {
     return selectedReq?.catalog?.name || selectedReq?.provider_service?.service_catalog?.name || "este servicio";
@@ -423,18 +484,18 @@ export default function Requests() {
   }, [deleteReq]);
 
   async function refresh({ silent = false } = {}) {
-    if (!user?.id) return;
+    if (!user?.id) return [];
     if (!silent) setLoading(true);
     setErr("");
 
     try {
       const data = await listIncomingRequests(user.id);
-      setItems(data || []);
+      const arr = data || [];
+      setItems(arr);
 
-      // ✅ limpia optimistic si ya vino el estado final desde DB
       setOptimisticStatus((prev) => {
         const next = { ...prev };
-        (data || []).forEach((r) => {
+        arr.forEach((r) => {
           const id = r?.id;
           if (!id) return;
           const db = norm(r?.status);
@@ -443,14 +504,29 @@ export default function Requests() {
         });
         return next;
       });
+
+      return arr;
     } catch (e) {
       const msg = e?.message || "Error cargando solicitudes";
       setErr(msg);
       if (!silent) toast.error("Error", msg);
+      return [];
     } finally {
       if (!silent) setLoading(false);
     }
   }
+
+  // ✅ si hay incumplidas, el prestador cae directo al chip "Incumplidas"
+  useEffect(() => {
+    // ✅ SOLO 1 vez al entrar: si existen incumplidas, lo mando a ese chip.
+    if (didAutoPickInc) return;
+
+    const hasInc = (items || []).some((r) => norm(r?.status) === STATUS.INCUMPLIDA);
+    if (hasInc) setFilter(FILTERS.INCUMPLIDAS);
+
+    setDidAutoPickInc(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, didAutoPickInc]);
 
   useEffect(() => {
     const ids = (items || [])
@@ -492,15 +568,19 @@ export default function Requests() {
 
     const reqCh = supabase
       .channel(`provider-requests-${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "service_requests", filter: `provider_id=eq.${user.id}` }, () =>
-        refresh({ silent: true })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "service_requests", filter: `provider_id=eq.${user.id}` },
+        () => refresh({ silent: true })
       )
       .subscribe();
 
     const apptCh = supabase
       .channel(`provider-appts-${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `provider_id=eq.${user.id}` }, () =>
-        refresh({ silent: true })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "appointments", filter: `provider_id=eq.${user.id}` },
+        () => refresh({ silent: true })
       )
       .subscribe();
 
@@ -512,22 +592,41 @@ export default function Requests() {
   }, [user?.id]);
 
   const counts = useMemo(() => {
-    const all = items.length;
-    const pending = items.filter((r) => PENDIENTES_SET.has(norm(r.status))).length;
-    const scheduled = items.filter((r) => AGENDADAS_SET.has(norm(r.status))).length;
-    const cancelled = items.filter((r) => CANCELADAS_SET.has(norm(r.status))).length;
-    const rejected = items.filter((r) => RECHAZADAS_SET.has(norm(r.status))).length;
-    return { all, pending, scheduled, cancelled, rejected };
+    const st = (r) => norm(r?.status);
+
+    const pending = items.filter((r) => PENDIENTES_SET.has(st(r))).length;
+    const scheduled = items.filter((r) => AGENDADAS_SET.has(st(r))).length;
+    const incumplidas = items.filter((r) => INCUMPLIDAS_SET.has(st(r))).length;
+    const cancelled = items.filter((r) => CANCELADAS_SET.has(st(r))).length;
+    const rejected = items.filter((r) => RECHAZADAS_SET.has(st(r))).length;
+    const completed = items.filter((r) => COMPLETADAS_SET.has(st(r))).length;
+
+    // ✅ TODAS: sin completadas ni incumplidas
+    const all = items.filter((r) => {
+      const s = st(r);
+      return s !== STATUS.COMPLETADA && s !== STATUS.INCUMPLIDA;
+    }).length;
+
+    return { all, pending, scheduled, incumplidas, cancelled, rejected, completed };
   }, [items]);
 
   const filteredItems = useMemo(() => {
     const st = (r) => norm(r.status);
     let arr = [...items];
 
+    if (filter === FILTERS.TODAS) {
+      arr = arr.filter((r) => {
+        const s = st(r);
+        return s !== STATUS.COMPLETADA && s !== STATUS.INCUMPLIDA;
+      });
+    }
+
     if (filter === FILTERS.PENDIENTES) arr = arr.filter((r) => PENDIENTES_SET.has(st(r)));
     if (filter === FILTERS.AGENDADAS) arr = arr.filter((r) => AGENDADAS_SET.has(st(r)));
+    if (filter === FILTERS.INCUMPLIDAS) arr = arr.filter((r) => INCUMPLIDAS_SET.has(st(r)));
     if (filter === FILTERS.CANCELADAS) arr = arr.filter((r) => CANCELADAS_SET.has(st(r)));
     if (filter === FILTERS.RECHAZADAS) arr = arr.filter((r) => RECHAZADAS_SET.has(st(r)));
+    if (filter === FILTERS.COMPLETADAS) arr = arr.filter((r) => COMPLETADAS_SET.has(st(r)));
 
     if (filter === FILTERS.AGENDADAS) {
       arr.sort((a, b) => {
@@ -547,10 +646,18 @@ export default function Requests() {
   }, [items, filter]);
 
   const emptyCopy = useMemo(() => {
-    if (filter === FILTERS.PENDIENTES) return { title: "No hay solicitudes pendientes", desc: "Cuando te llegue una nueva solicitud o una para cotizar, aparece acá." };
-    if (filter === FILTERS.AGENDADAS) return { title: "No hay turnos agendados", desc: "Cuando confirmes un turno, lo vas a ver acá." };
-    if (filter === FILTERS.CANCELADAS) return { title: "No hay solicitudes canceladas", desc: "Acá quedan las canceladas para referencia (y podés eliminarlas)." };
-    if (filter === FILTERS.RECHAZADAS) return { title: "No hay solicitudes rechazadas", desc: "Acá quedan las rechazadas para referencia (y podés eliminarlas)." };
+    if (filter === FILTERS.PENDIENTES)
+      return { title: "No hay solicitudes pendientes", desc: "Cuando te llegue una nueva solicitud o una para cotizar, aparece acá." };
+    if (filter === FILTERS.AGENDADAS)
+      return { title: "No hay turnos agendados", desc: "Cuando confirmes un turno, lo vas a ver acá." };
+    if (filter === FILTERS.INCUMPLIDAS)
+      return { title: "No hay incumplidas", desc: "Si una solicitud se marca como incumplida, aparece acá y podés eliminarla." };
+    if (filter === FILTERS.CANCELADAS)
+      return { title: "No hay solicitudes canceladas", desc: "Acá quedan las canceladas para referencia (y podés eliminarlas)." };
+    if (filter === FILTERS.RECHAZADAS)
+      return { title: "No hay solicitudes rechazadas", desc: "Acá quedan las rechazadas para referencia (y podés eliminarlas)." };
+    if (filter === FILTERS.COMPLETADAS)
+      return { title: "No hay solicitudes completadas", desc: "Cuando completes un trabajo, va a aparecer acá y también en tu historial." };
     return { title: "Todavía no te llegaron solicitudes", desc: "Cuando un cliente te escriba, vas a poder cotizar o agendar desde acá." };
   }, [filter]);
 
@@ -572,32 +679,13 @@ export default function Requests() {
 
   async function sendQuote(req) {
     const amount = quoteMap[req.id];
-    const num = Number(amount);
+    const num = parseThousandsARS(amount);
 
     if (!Number.isFinite(num) || num <= 0) return toast.warning("Cotización inválida", "Ingresá un monto válido.");
 
     try {
       setBusyId(req.id);
       await updateRequest(req.id, { status: STATUS.COTIZADA, quote_amount: num });
-
-      // ✅ NOTI al CLIENTE: nueva cotización
-      try {
-        const serviceName = req?.catalog?.name || req?.provider_service?.service_catalog?.name || "un servicio";
-        await safeCreateNotification({
-          user_id: req.client_id,
-          actor_id: user?.id || null,
-          type: "quote_new",
-          title: "Nueva cotización",
-          body: `${serviceName}: ${formatMoneyARS(num) || ""}`.trim(),
-          metadata: {
-            request_id: req.id,
-            provider_id: req.provider_id,
-            client_id: req.client_id,
-            quote_amount: num,
-          },
-          is_read: false,
-        });
-      } catch {}
 
       toast.success("Cotización enviada", "El cliente ya puede aceptarla o rechazarla.");
       setItems((prev) => prev.map((x) => (x.id === req.id ? { ...x, status: STATUS.COTIZADA, quote_amount: num } : x)));
@@ -642,28 +730,7 @@ export default function Requests() {
       await confirmAppointmentByRequestId(req.id);
       await updateRequest(req.id, { status: STATUS.AGENDADA });
 
-      // ✅ evita flicker del botón por refresh con dato viejo
       setOptimisticStatus((m) => ({ ...m, [req.id]: STATUS.AGENDADA }));
-
-      // ✅ NOTI al CLIENTE: turno confirmado
-      try {
-        const serviceName = req?.catalog?.name || req?.provider_service?.service_catalog?.name || "un servicio";
-        const when = formatWhen(req.preferred_datetime);
-        await safeCreateNotification({
-          user_id: req.client_id,
-          actor_id: user?.id || null,
-          type: "request_agendada",
-          title: "Turno confirmado",
-          body: `${serviceName} · ${when}`,
-          metadata: {
-            request_id: req.id,
-            provider_id: req.provider_id,
-            client_id: req.client_id,
-            preferred_datetime: req.preferred_datetime ?? null,
-          },
-          is_read: false,
-        });
-      } catch {}
 
       toast.success("Agendado", "El turno quedó confirmado.");
       setItems((prev) => prev.map((x) => (x.id === req.id ? { ...x, status: STATUS.AGENDADA } : x)));
@@ -697,25 +764,6 @@ export default function Requests() {
         cancelled_reason: "Rechazado por el prestador",
       });
 
-      // ✅ NOTI al CLIENTE: solicitud rechazada
-      try {
-        const serviceName =
-          selectedReq?.catalog?.name || selectedReq?.provider_service?.service_catalog?.name || "un servicio";
-        await safeCreateNotification({
-          user_id: selectedReq.client_id,
-          actor_id: user?.id || null,
-          type: "request_rejected",
-          title: "Solicitud rechazada",
-          body: `${serviceName} · Rechazada por el prestador`,
-          metadata: {
-            request_id: selectedReq.id,
-            provider_id: selectedReq.provider_id,
-            client_id: selectedReq.client_id,
-          },
-          is_read: false,
-        });
-      } catch {}
-
       setItems((prev) => prev.map((x) => (x.id === selectedReq.id ? { ...x, status: STATUS.RECHAZADA } : x)));
       toast.success("Solicitud rechazada", "Se informó al cliente y se liberó el horario.");
       closeReject();
@@ -728,20 +776,14 @@ export default function Requests() {
     }
   }
 
-  function openCancel(req) {
-    setCancelReq(req);
-    setCancelReason("");
-    setCancelOpen(true);
-  }
-  function closeCancel() {
-    setCancelOpen(false);
-    setCancelReq(null);
-    setCancelReason("");
-  }
-
   async function confirmCancel() {
     if (!cancelReq?.id) return;
     if (!canCancelScheduledWithStatus(cancelReq?.status)) return;
+
+    if (hasTurnStarted(cancelReq?.preferred_datetime)) {
+      toast.warning("No se puede cancelar", "El turno ya comenzó.");
+      return;
+    }
 
     const reason = String(cancelReason || "").trim();
     if (!reason) return toast.warning("Motivo obligatorio", "Escribí un motivo para cancelar el turno.");
@@ -758,7 +800,9 @@ export default function Requests() {
 
       setItems((prev) => prev.map((x) => (x.id === cancelReq.id ? { ...x, status: STATUS.CANCELADA } : x)));
       toast.success("Turno cancelado", "Se liberó el horario y se notificará al cliente.");
-      closeCancel();
+      setCancelOpen(false);
+      setCancelReq(null);
+      setCancelReason("");
       refresh({ silent: true });
     } catch (e) {
       toast.error("No se pudo cancelar", e?.message || "Revisá RLS/policies.");
@@ -772,10 +816,7 @@ export default function Requests() {
     setDeleteReq(req);
     setDeleteOpen(true);
   }
-  function closeDelete() {
-    setDeleteOpen(false);
-    setDeleteReq(null);
-  }
+
   async function confirmDelete() {
     if (!deleteReq?.id) return;
     if (!canDeleteWithStatus(deleteReq?.status)) return;
@@ -784,31 +825,58 @@ export default function Requests() {
 
     try {
       setBusyId(id);
+
+      // ✅ optimista
       setItems((prev) => prev.filter((x) => x.id !== id));
+
       await deleteRequest(id);
-      toast.success("Eliminada", "Ya no aparece en tu lista.");
-      closeDelete();
-      refresh({ silent: true });
+
+      // ✅ verificación: si sigue estando, NO mentimos "se eliminó"
+      const after = await refresh({ silent: true });
+      const stillThere = (after || []).some((x) => x.id === id);
+
+      if (stillThere) {
+        toast.error("No se pudo eliminar", "Parece un tema de permisos (RLS/policies).");
+      } else {
+        toast.success("Eliminada", "Ya no aparece en tu lista.");
+        setDeleteOpen(false);
+        setDeleteReq(null);
+      }
     } catch (e) {
-      toast.error("No se pudo eliminar", e?.message || "Revisá RLS/policies.");
-      refresh({ silent: true });
+      if (isNotFoundLike(e)) {
+        toast.success("Eliminada", "Ya no aparece en tu lista.");
+        setDeleteOpen(false);
+        setDeleteReq(null);
+        refresh({ silent: true });
+      } else {
+        // si falla, traemos estado real
+        await refresh({ silent: true });
+
+        if (isRlsLike(e)) {
+          toast.error(
+            "No se pudo eliminar",
+            "No tenés permisos para eliminar. Revisá las policies (RLS) de service_requests."
+          );
+        } else {
+          toast.error("No se pudo eliminar", e?.message || "Error inesperado al eliminar.");
+        }
+      }
     } finally {
       setBusyId(null);
     }
   }
 
   const subtitle = useMemo(() => {
+    if (counts.incumplidas > 0) return `Tenés ${counts.incumplidas} incumplida(s) para revisar`;
     if (counts.pending > 0) return `Tenés ${counts.pending} pendiente(s) para responder`;
     if (counts.scheduled > 0) return `Tenés ${counts.scheduled} agendada(s)`;
     return "Gestioná tus solicitudes de forma rápida";
-  }, [counts.pending, counts.scheduled]);
+  }, [counts.pending, counts.scheduled, counts.incumplidas]);
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
-      {/* ✅ centra todo el contenido para que no quede “corrida” la card */}
       <div className="w-full px-6 pt-[40px] pb-6 box-border">
         <div className="mx-auto w-full max-w-[520px]">
-          {/* Top */}
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-[22px] font-extrabold text-[#3D3D3D] leading-tight">Solicitudes</h1>
@@ -822,7 +890,6 @@ export default function Requests() {
             </div>
           </div>
 
-          {/* Chips */}
           <div className="mt-6 -mx-6 px-6 overflow-x-auto hide-scrollbar pb-1">
             <style>{`
               .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
@@ -830,17 +897,53 @@ export default function Requests() {
             `}</style>
 
             <div className="flex gap-3 w-max">
-              <FilterChip active={filter === FILTERS.TODAS} label="Todas" count={counts.all} onClick={() => setFilter(FILTERS.TODAS)} />
-              <FilterChip active={filter === FILTERS.PENDIENTES} label="Pendientes" count={counts.pending} onClick={() => setFilter(FILTERS.PENDIENTES)} />
-              <FilterChip active={filter === FILTERS.AGENDADAS} label="Agendadas" count={counts.scheduled} onClick={() => setFilter(FILTERS.AGENDADAS)} />
-              <FilterChip active={filter === FILTERS.CANCELADAS} label="Canceladas" count={counts.cancelled} onClick={() => setFilter(FILTERS.CANCELADAS)} />
-              <FilterChip active={filter === FILTERS.RECHAZADAS} label="Rechazadas" count={counts.rejected} onClick={() => setFilter(FILTERS.RECHAZADAS)} />
+              <FilterChip
+                active={filter === FILTERS.TODAS}
+                label="Todas"
+                count={counts.all}
+                onClick={() => setFilter(FILTERS.TODAS)}
+              />
+              <FilterChip
+                active={filter === FILTERS.PENDIENTES}
+                label="Pendientes"
+                count={counts.pending}
+                onClick={() => setFilter(FILTERS.PENDIENTES)}
+              />
+              <FilterChip
+                active={filter === FILTERS.AGENDADAS}
+                label="Agendadas"
+                count={counts.scheduled}
+                onClick={() => setFilter(FILTERS.AGENDADAS)}
+              />
+              <FilterChip
+                active={filter === FILTERS.INCUMPLIDAS}
+                label="Incumplidas"
+                count={counts.incumplidas}
+                onClick={() => setFilter(FILTERS.INCUMPLIDAS)}
+              />
+              <FilterChip
+                active={filter === FILTERS.CANCELADAS}
+                label="Canceladas"
+                count={counts.cancelled}
+                onClick={() => setFilter(FILTERS.CANCELADAS)}
+              />
+              <FilterChip
+                active={filter === FILTERS.RECHAZADAS}
+                label="Rechazadas"
+                count={counts.rejected}
+                onClick={() => setFilter(FILTERS.RECHAZADAS)}
+              />
+              <FilterChip
+                active={filter === FILTERS.COMPLETADAS}
+                label="Completadas"
+                count={counts.completed}
+                onClick={() => setFilter(FILTERS.COMPLETADAS)}
+              />
             </div>
           </div>
 
           {err && <p className="mt-4 text-sm text-red-600">{err}</p>}
 
-          {/* List */}
           <div className="mt-5 grid gap-3">
             {loading && Array.from({ length: 4 }).map((_, i) => <RequestCardSkeleton key={i} />)}
 
@@ -861,10 +964,11 @@ export default function Requests() {
                 const fixedPrice = getFixedPrice(r);
                 const isQuote = String(pricingType || "").toUpperCase() === "B";
 
-                const base = isQuote ? (r?.quote_amount != null ? Number(r.quote_amount) : null) : fixedPrice != null ? Number(fixedPrice) : null;
+                const snapAmount = r?.service_amount != null ? Number(r.service_amount) : null;
 
-                // ✅ si es cotización y todavía NO hay monto, NO mostramos chip de “pendiente”
-                const priceText = base != null ? formatMoneyARS(base) : null; 
+                const base = isQuote
+                  ? (r?.quote_amount != null ? Number(r.quote_amount) : null)
+                  : (Number.isFinite(snapAmount) ? snapAmount : (fixedPrice != null ? Number(fixedPrice) : null));
 
                 const turno = formatTurno(r.preferred_datetime);
 
@@ -876,8 +980,10 @@ export default function Requests() {
 
                 const cleanedDesc = cleanDescForCard(r?.description);
 
-                const showCancel = canCancelScheduledWithStatus(effectiveStatus);
-                const showReject = canRejectWithStatus(effectiveStatus); // ✅ ya NO incluye completada
+                // ✅ Provider: solo ocultamos cancelar si ya empezó
+                const showCancel = canCancelScheduledWithStatus(effectiveStatus) && !hasTurnStarted(r?.preferred_datetime);
+
+                const showReject = canRejectWithStatus(effectiveStatus);
                 const showDelete = canDeleteWithStatus(effectiveStatus);
 
                 return (
@@ -891,12 +997,10 @@ export default function Requests() {
                     }}
                     className="w-full rounded-[22px] bg-white border border-black/10 shadow-[0_10px_22px_rgba(0,0,0,0.06)] px-4 py-4 cursor-pointer select-none"
                   >
-                    {/* Top row */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-[15px] font-extrabold text-[#3D3D3D] leading-snug line-clamp-2">{name}</p>
 
-                        {/* ✅ sin chip “Cliente”, solo nombre */}
                         <div className="mt-2 flex items-center gap-2 min-w-0">
                           <IconifyIcon icon="mdi:account-outline" className="h-4 w-4 text-black/35 shrink-0" />
                           <p className="text-[12px] font-semibold text-black/70 truncate">{clientName}</p>
@@ -927,7 +1031,6 @@ export default function Requests() {
                           </button>
                         )}
 
-                        {/* ✅ NO mostrar rechazar en completada */}
                         {showReject && (
                           <button
                             type="button"
@@ -968,45 +1071,28 @@ export default function Requests() {
                       </div>
                     </div>
 
-                    {/* ✅ SOLO descripción limpia (sin ubicación/barrio/dirección) */}
-                    {cleanedDesc ? <p className="mt-3 text-[13px] text-black/55 line-clamp-2 whitespace-pre-line">{cleanedDesc}</p> : null}
+                    {cleanedDesc ? (
+                      <p className="mt-3 text-[13px] text-black/55 line-clamp-2 whitespace-pre-line">{cleanedDesc}</p>
+                    ) : null}
 
-                    {/* ✅ más espacio entre descripción y chips + chips abajo */}
-                    {/* ✅ Fila fija (2 columnas) para que NUNCA se desalineen */}
                     <div className="mt-5 grid grid-cols-2 items-center gap-3">
-                      {/* Fecha (izquierda) */}
-                      <span
-                        className="
-                          inline-flex items-center rounded-full
-                          px-2 py-2 text-[12px] font-extrabold
-                          bg-black/[0.04] text-black/60
-                          w-full min-w-0
-                          mt-3
-                        "
-                      >
-                        {/* Columna fija para el ícono (margen visual parejo) */}
+                      <span className="inline-flex items-center rounded-full px-2 py-2 text-[12px] font-extrabold bg-black/[0.04] text-black/60 w-full min-w-0">
                         <span className="w-6 grid place-items-center shrink-0">
                           <IconifyIcon icon="mdi:calendar-blank-outline" className="h-4 w-4 text-black/40" />
                         </span>
-
-                        {/* Texto */}
                         <span className="whitespace-nowrap">
                           {turno.date}
                           {turno.time ? ` · ${turno.time}` : ""}
                         </span>
                       </span>
 
-                      {/* Precio (derecha) - sin fondo, 2 líneas prolijas */}
                       <div className="justify-self-end text-right">
-                        <p className="mr-1 text-[11px] font-medium text-black/45 leading-none">
-                          {isQuote ? "Cotización" : "Precio"}
-                        </p>
-                        <p className="mt-2 mr-1 text-[15px] font-extrabold text-[#3D3D3D] leading-none">
+                        <p className="text-[11px] font-medium text-black/45 leading-none">{isQuote ? "Cotización" : "Precio"}</p>
+                        <p className="mt-2 text-[15px] font-extrabold text-[#3D3D3D] leading-none">
                           {base != null ? formatMoneyARS(base) : "—"}
                         </p>
                       </div>
                     </div>
-
 
                     <div className="mt-3 grid gap-2">
                       {canScheduleThis && (
@@ -1026,7 +1112,6 @@ export default function Requests() {
                         </button>
                       )}
 
-                      {/* ✅ cotización con mejor jerarquía pero manteniendo el estilo “lindo” */}
                       {canQuoteThis && (
                         <div
                           className="rounded-[18px] bg-[#1E2F5D]/[0.05] border border-[#1E2F5D]/15 p-4"
@@ -1043,12 +1128,22 @@ export default function Requests() {
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-black/35 text-sm">$</span>
                               <input
                                 className="w-full h-11 rounded-full bg-white border border-black/10 px-4 pl-7 text-[13px] font-semibold outline-none text-[#3D3D3D] placeholder:text-black/30"
-                                type="number"
-                                min="1"
+                                type="text"
                                 inputMode="numeric"
+                                pattern="[0-9.]*"
                                 placeholder="Monto"
                                 value={quote}
-                                onChange={(e) => setQuoteMap((m) => ({ ...m, [r.id]: e.target.value }))}
+                                onChange={(e) => {
+                                  const formatted = formatThousandsARS(e.target.value);
+                                  setQuoteMap((m) => ({ ...m, [r.id]: formatted }));
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (!isBusy) sendQuote(r);
+                                  }
+                                }}
                                 disabled={isBusy}
                               />
                             </div>
@@ -1077,10 +1172,9 @@ export default function Requests() {
         </div>
       </div>
 
-      {/* MODAL RECHAZAR */}
       {rejectOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6">
-          <button type="button" className="absolute inset-0 bg-black/50" onClick={() => { setRejectOpen(false); setSelectedReq(null); }} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/50" onClick={closeReject} aria-label="Cerrar" />
 
           <div className="relative w-full max-w-lg rounded-[22px] bg-white shadow-2xl p-6 border border-black/10">
             <h3 className="text-[18px] font-extrabold text-[#3D3D3D]">Rechazar solicitud</h3>
@@ -1094,7 +1188,7 @@ export default function Requests() {
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => { setRejectOpen(false); setSelectedReq(null); }}
+                onClick={closeReject}
                 className="h-11 rounded-full bg-white border border-black/10 px-5 text-[13px] font-extrabold text-[#3D3D3D] active:scale-[0.98] transition"
               >
                 Cancelar

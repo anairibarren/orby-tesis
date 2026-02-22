@@ -1,10 +1,13 @@
+// src/components/RequireProviderComplete.jsx
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import Loading from "./Loading";
 
 export default function RequireProviderComplete({ children }) {
   const { role, profile, profileLoading } = useAuth();
 
-  if (profileLoading) return <div className="p-6">Cargando…</div>;
+  // ✅ Loader mientras se termina de cargar el profile
+  if (profileLoading) return <Loading />;
 
   if (role !== "provider") return <Navigate to="/" replace />;
 

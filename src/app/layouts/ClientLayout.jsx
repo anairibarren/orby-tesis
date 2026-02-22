@@ -1,7 +1,7 @@
 // src/app/layouts/ClientLayout.jsx
 import { Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import BottomNav from "../../components/BottomNav";
-import { AnimatePresence } from "framer-motion";
 
 import ClientHome from "../../pages/client/Home";
 import ClientSearch from "../../pages/client/Search";
@@ -12,20 +12,17 @@ import ClientRequestForm from "../../pages/client/RequestForm";
 import ClientSchedule from "../../pages/client/Schedule";
 import ClientRequestSuccess from "../../pages/client/RequestSuccess";
 
-// ✅ Listado por categoría
+import ClientChat from "../../pages/client/Chat";
+
 import ClientCategoryServices from "../../pages/client/CategoryServices";
-
-// ✅ NUEVO: listado de prestadores por servicio (catálogo)
 import ProvidersByService from "../../pages/client/ProvidersByService";
-
-// ✅ NUEVO: perfil público del prestador
 import ProviderProfile from "../../pages/client/ProviderProfile";
-
-// ✅ NUEVO: Notificaciones cliente
 import ClientNotifications from "../../pages/client/Notifications";
-
-// ✅ NUEVO: Pantalla categorías (NO redirect)
 import ClientCategories from "../../pages/client/Categories";
+import ClientFavorites from "../../pages/client/Favorites";
+import ClientHistory from "../../pages/client/History";
+import ClientHelp from "../../pages/client/Help";
+import ClientLegal from "../../pages/client/Legal";
 
 function ServiceToRequestRedirect() {
   const { id } = useParams();
@@ -35,41 +32,49 @@ function ServiceToRequestRedirect() {
 export default function ClientLayout() {
   const location = useLocation();
 
+  const hideBottomNav = /\/client\/requests\/[^/]+\/chat$/.test(location.pathname);
+
   return (
-    <div className="min-h-screen pb-24 bg-[#F5F5F5] overflow-x-hidden">
-      <AnimatePresence mode="wait" initial={false}>
-        <Routes location={location} key={location.pathname}>
-          <Route index element={<ClientHome />} />
-          <Route path="search" element={<ClientSearch />} />
-          <Route path="requests" element={<ClientRequests />} />
-          <Route path="profile" element={<ClientProfile />} />
+    <div className="min-h-[100dvh] bg-[#F5F5F5]">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={location.pathname}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+        >
+          <Routes location={location}>
+            <Route index element={<ClientHome />} />
+            <Route path="search" element={<ClientSearch />} />
+            <Route path="requests" element={<ClientRequests />} />
+            <Route path="profile" element={<ClientProfile />} />
 
-          {/* ✅ Notificaciones */}
-          <Route path="notifications" element={<ClientNotifications />} />
+            <Route path="favorites" element={<ClientFavorites />} />
+            <Route path="history" element={<ClientHistory />} />
+            <Route path="help" element={<ClientHelp />} />
+            <Route path="legal" element={<ClientLegal />} />
+            <Route path="notifications" element={<ClientNotifications />} />
 
-          {/* ✅ Categorías */}
-          <Route path="categories" element={<ClientCategories />} />
-          <Route path="categories/:category" element={<ClientCategoryServices />} />
+            <Route path="categories" element={<ClientCategories />} />
+            <Route path="categories/:category" element={<ClientCategoryServices />} />
 
-          {/* ✅ Prestadores por servicio (desde catálogo) */}
-          <Route path="services/catalog/:catalogId" element={<ProvidersByService />} />
+            <Route path="services/catalog/:catalogId" element={<ProvidersByService />} />
+            <Route path="provider/:providerServiceId" element={<ProviderProfile />} />
 
-          {/* ✅ Perfil del prestador (visible por cliente) */}
-          <Route path="provider/:providerServiceId" element={<ProviderProfile />} />
+            <Route path="services/:id/request" element={<ClientRequestForm />} />
+            <Route path="services/:id/schedule" element={<ClientSchedule />} />
+            <Route path="services/:id/success" element={<ClientRequestSuccess />} />
+            <Route path="services/:id" element={<ServiceToRequestRedirect />} />
 
-          {/* ✅ Flujo solicitud */}
-          <Route path="services/:id/request" element={<ClientRequestForm />} />
-          <Route path="services/:id/schedule" element={<ClientSchedule />} />
-          <Route path="services/:id/success" element={<ClientRequestSuccess />} />
+            <Route path="requests/:requestId/chat" element={<ClientChat />} />
 
-          {/* ✅ Si alguien cae a /client/services/:id */}
-          <Route path="services/:id" element={<ServiceToRequestRedirect />} />
-
-          <Route path="*" element={<Navigate to="/client" replace />} />
-        </Routes>
+            <Route path="*" element={<Navigate to="/client" replace />} />
+          </Routes>
+        </motion.div>
       </AnimatePresence>
 
-      <BottomNav />
+      {!hideBottomNav && <BottomNav />}
     </div>
   );
 }

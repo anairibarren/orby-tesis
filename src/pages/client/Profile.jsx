@@ -1,7 +1,8 @@
 // src/pages/client/Profile.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon as IconifyIcon } from "@iconify/react";
+import { AnimatePresence, motion } from "framer-motion";
 
 import { useAuth } from "../../hooks/useAuth";
 import { logoutUser } from "../../services/auth";
@@ -9,17 +10,39 @@ import { updateMyProfile } from "../../services/profiles";
 import { useToast } from "../../components/Toast";
 import { supabase } from "../../services/supabase";
 
-const NEIGHBORHOODS = [
+/* ---------------- utils ---------------- */
+function norm(v) {
+  return String(v ?? "").trim();
+}
+function stripAccents(s) {
+  return String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+function keyify(s) {
+  return stripAccents(norm(s)).toLowerCase();
+}
+
+/* ---------------- barrios Vicente López (COMPLETO) ---------------- */
+const VICENTE_LOPEZ_NEIGHBORHOODS = [
   "Vicente López",
   "Olivos",
-  "La Lucila",
   "Florida",
+  "La Lucila",
+  "Villa Martelli",
   "Florida Oeste",
   "Munro",
-  "Villa Martelli",
   "Carapachay",
-].sort((a, b) => a.localeCompare(b));
+  "Villa Adelina",
+];
 
+const ALLOWED_SET = new Set(VICENTE_LOPEZ_NEIGHBORHOODS.map((n) => keyify(n)));
+
+function isAllowedNeighborhood(v) {
+  return ALLOWED_SET.has(keyify(v));
+}
+
+/* ---------------- UI atoms (estilo provider) ---------------- */
 function IconButton({ onClick, title, children, className = "", disabled = false }) {
   return (
     <button
@@ -29,7 +52,7 @@ function IconButton({ onClick, title, children, className = "", disabled = false
       aria-label={title}
       disabled={disabled}
       className={[
-        "h-11 w-11 rounded-full bg-white shadow-[0_6px_18px_rgba(0,0,0,0.08)] grid place-items-center shrink-0 active:scale-[0.98] transition",
+        "h-11 w-11 rounded-full bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)] grid place-items-center shrink-0 active:scale-[0.98] transition",
         disabled ? "opacity-60 pointer-events-none" : "",
         className,
       ].join(" ")}
@@ -41,7 +64,12 @@ function IconButton({ onClick, title, children, className = "", disabled = false
 
 function CardShell({ children, className = "" }) {
   return (
-    <div className={["w-full rounded-[24px] bg-white shadow-[0_12px_26px_rgba(0,0,0,0.07)] overflow-hidden", className].join(" ")}>
+    <div
+      className={[
+        "w-full rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] overflow-hidden",
+        className,
+      ].join(" ")}
+    >
       {children}
     </div>
   );
@@ -49,7 +77,7 @@ function CardShell({ children, className = "" }) {
 
 function InitialsAvatar({ name }) {
   const initials = useMemo(() => {
-    const n = String(name || "").trim();
+    const n = norm(name);
     if (!n) return "O";
     const parts = n.split(/\s+/).filter(Boolean);
     const first = parts[0]?.[0] || "O";
@@ -58,7 +86,7 @@ function InitialsAvatar({ name }) {
   }, [name]);
 
   return (
-    <div className="h-[68px] w-[68px] rounded-[26px] bg-[#DDE6F7] grid place-items-center shrink-0">
+    <div className="h-[76px] w-[76px] rounded-[26px] bg-[#DDE6F7] grid place-items-center shrink-0">
       <span className="text-[18px] font-extrabold text-[#1E2F5D]">{initials}</span>
     </div>
   );
@@ -67,9 +95,14 @@ function InitialsAvatar({ name }) {
 function RolePill({ role }) {
   const label = role || "—";
   const isClient = label === "client";
-  const styles = isClient ? "bg-[#CFDE87]/25 text-[#3D3D3D]" : "bg-black/[0.04] text-black/55";
+  const styles = "bg-black/[0.04] text-black/55";
   const pretty = isClient ? "Cliente" : label;
-  return <span className={`inline-flex items-center rounded-full px-3 py-1 text-[12px] font-semibold ${styles}`}>{pretty}</span>;
+
+  return (
+    <span className={`inline-flex items-center rounded-full px-3 py-1 text-[12px] font-semibold ${styles}`}>
+      {pretty}
+    </span>
+  );
 }
 
 function InfoRow({ icon, label, value }) {
@@ -92,171 +125,349 @@ function RowButton({ icon, title, desc, onClick, right }) {
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] p-4 text-left active:scale-[0.99] transition"
+      className="w-full min-w-0 rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] p-4 text-left active:scale-[0.99] transition box-border"
     >
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 min-w-0">
         <div className="flex items-center gap-3 min-w-0">
           <span className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center shrink-0">
             <IconifyIcon icon={icon} className="h-5 w-5 text-black/45" />
           </span>
+
           <div className="min-w-0">
             <p className="text-[14px] font-extrabold text-[#3D3D3D] truncate">{title}</p>
             {desc ? <p className="mt-0.5 text-[12px] text-black/45 truncate">{desc}</p> : null}
           </div>
         </div>
 
-        {right ? <div className="shrink-0">{right}</div> : <IconifyIcon icon="mdi:chevron-right" className="h-7 w-7 text-black/25 shrink-0" />}
+        {right ? (
+          <div className="shrink-0">{right}</div>
+        ) : (
+          <IconifyIcon icon="mdi:chevron-right" className="h-7 w-7 text-black/25 shrink-0" />
+        )}
       </div>
     </button>
   );
 }
 
-function NeighborhoodPicker({ value, onChange, disabled }) {
-  const [open, setOpen] = useState(false);
-
-  const matches = useMemo(() => {
-    const t = String(value || "").trim().toLowerCase();
-    if (!t) return NEIGHBORHOODS.slice(0, 8);
-    return NEIGHBORHOODS.filter((n) => n.toLowerCase().includes(t)).slice(0, 8);
-  }, [value]);
-
+/* ---------------- Minimal inputs (igual provider) ---------------- */
+function InputPill({ label, value, onChange, placeholder, disabled, icon }) {
   return (
-    <div className="relative">
+    <div className="rounded-[18px] bg-black/[0.03] px-4 py-3">
+      <div className="flex items-center gap-2">
+        {icon ? <IconifyIcon icon={icon} className="h-5 w-5 text-black/35 shrink-0" /> : null}
+        <p className="text-[12px] font-semibold text-black/45">{label}</p>
+      </div>
+
       <input
         value={value}
-        onChange={(e) => onChange?.(e.target.value)}
-        onFocus={() => setOpen(true)}
-        placeholder="Ej: Villa Martelli"
-        className="mt-2 w-full h-12 rounded-2xl border border-black/10 bg-white px-4 text-sm outline-none placeholder:text-black/30"
+        onChange={onChange}
+        placeholder={placeholder}
         disabled={disabled}
+        className="mt-2 w-full bg-transparent text-[14px] font-semibold text-[#3D3D3D] outline-none placeholder:text-black/25"
       />
-
-      {open && !disabled && (
-        <div className="absolute left-0 right-0 mt-2 rounded-2xl bg-white shadow-[0_12px_26px_rgba(0,0,0,0.10)] border border-black/10 overflow-hidden z-[99999]">
-          <div className="px-4 py-3 flex items-center justify-between">
-            <p className="text-[12px] font-semibold text-black/50">Barrios sugeridos</p>
-            <button type="button" onClick={() => setOpen(false)} className="h-8 w-8 rounded-full bg-black/[0.04] grid place-items-center">
-              <IconifyIcon icon="mdi:close" className="h-5 w-5 text-black/45" />
-            </button>
-          </div>
-
-          <div className="max-h-56 overflow-auto">
-            {matches.length ? (
-              matches.map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => {
-                    onChange?.(n);
-                    setOpen(false);
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-black/[0.03] active:bg-black/[0.05]"
-                >
-                  <p className="text-[14px] font-semibold text-[#3D3D3D]">{n}</p>
-                </button>
-              ))
-            ) : (
-              <div className="px-4 py-4">
-                <p className="text-[12px] text-black/50">No hay coincidencias.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
+/* ---------------- Combobox barrios (dropdown SIEMPRE abajo) ---------------- */
+function NeighborhoodCombobox({ value, onChange, disabled }) {
+  const inputRef = useRef(null);
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const [anchor, setAnchor] = useState({ left: 16, top: 120, width: 320, maxH: 240 });
+
+  const filtered = useMemo(() => {
+    const q = keyify(open ? query : value);
+    if (!q) return VICENTE_LOPEZ_NEIGHBORHOODS;
+    return VICENTE_LOPEZ_NEIGHBORHOODS.filter((n) => keyify(n).includes(q));
+  }, [query, value, open]);
+
+  function close() {
+    setOpen(false);
+    setQuery("");
+  }
+
+  function updateAnchor() {
+    const el = inputRef.current;
+    if (!el) return;
+
+    const r = el.getBoundingClientRect();
+    const gap = 8;
+    const top = r.bottom + gap; // ✅ SIEMPRE abajo
+
+    // ✅ max height dinámico: no se corta, se achica y scrollea
+    const spaceBelow = window.innerHeight - top - 12;
+    const maxH = Math.max(120, Math.min(240, spaceBelow));
+
+    setAnchor({
+      left: Math.max(12, r.left),
+      top,
+      width: Math.max(240, r.width),
+      maxH,
+    });
+  }
+
+  useEffect(() => {
+    if (!open) return;
+
+    updateAnchor();
+
+    const onResize = () => updateAnchor();
+    const onScroll = () => updateAnchor();
+
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onScroll, true);
+
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, query, value]);
+
+  function pick(v) {
+    onChange(v);
+    close();
+  }
+
+  return (
+    <div className="relative">
+      <div className="rounded-[18px] bg-black/[0.03] px-4 py-3">
+        <div className="flex items-center gap-2">
+          <IconifyIcon icon="mdi:map-marker-outline" className="h-5 w-5 text-black/35 shrink-0" />
+          <p className="text-[12px] font-semibold text-black/45">Barrio</p>
+        </div>
+
+        <input
+          ref={inputRef}
+          value={open ? query : value}
+          onChange={(e) => {
+            setOpen(true);
+            setQuery(e.target.value);
+            onChange(e.target.value);
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder="Elegí un barrio…"
+          disabled={disabled}
+          className="mt-2 w-full bg-transparent text-[14px] font-semibold text-[#3D3D3D] outline-none placeholder:text-black/25"
+        />
+      </div>
+
+      <AnimatePresence>
+        {open && !disabled && (
+          <>
+            <motion.button
+              type="button"
+              className="fixed inset-0 z-[9998] bg-transparent"
+              onClick={close}
+              aria-label="Cerrar"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            />
+
+            <motion.div
+              className="fixed z-[9999] rounded-[18px] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.12)] overflow-hidden border border-black/5"
+              style={{ left: anchor.left, top: anchor.top, width: anchor.width }}
+              initial={{ y: 6, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 6, opacity: 0 }}
+              transition={{ duration: 0.16 }}
+            >
+              <div style={{ maxHeight: anchor.maxH }} className="overflow-auto">
+                {filtered.length ? (
+                  filtered.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => pick(n)}
+                      className="w-full px-4 py-3 text-left hover:bg-black/[0.03] active:bg-black/[0.05] flex items-center justify-between"
+                    >
+                      <span className="text-[14px] font-semibold text-[#3D3D3D]">{n}</span>
+                      {keyify(value) === keyify(n) ? (
+                        <IconifyIcon icon="mdi:check" className="h-5 w-5 text-[#2A4691]" />
+                      ) : null}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-4 text-[13px] text-black/50">No hay coincidencias</div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ---------------- Edit modal (bottom sheet, estilo provider) ---------------- */
 function EditProfileModal({ open, onClose, onSave, busy, initial }) {
   const [fullName, setFullName] = useState("");
   const [neighborhood, setNeighborhood] = useState("");
+
+  // ✅ el warning solo aparece al intentar guardar
+  const [neighborhoodTouched, setNeighborhoodTouched] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setFullName(initial?.full_name || "");
     setNeighborhood(initial?.neighborhood || "");
+    setNeighborhoodTouched(false);
   }, [open, initial]);
 
-  if (!open) return null;
+  const neighborhoodValid = useMemo(() => isAllowedNeighborhood(neighborhood), [neighborhood]);
 
-  const canSave = fullName.trim().length >= 2 && !busy;
+  const canSave = useMemo(() => {
+    return fullName.trim().length >= 2 && neighborhoodValid && !busy;
+  }, [fullName, neighborhoodValid, busy]);
+
+  function trySave() {
+    setNeighborhoodTouched(true);
+
+    onSave?.({
+      full_name: fullName.trim(),
+      neighborhood: neighborhood.trim(),
+    });
+  }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6">
-      <button type="button" className="absolute inset-0 bg-black/50" onClick={() => !busy && onClose?.()} aria-label="Cerrar" />
-
-      {/* ✅ sin overflow-hidden para que no corte el dropdown */}
-      <div className="relative w-full max-w-lg rounded-[24px] bg-white shadow-2xl overflow-visible">
-        <div className="p-6 border-b border-black/10">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-[18px] font-extrabold text-[#3D3D3D]">Editar perfil</h3>
-              <p className="mt-1 text-[12px] text-black/50">Actualizá tu info para personalizar la experiencia.</p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => !busy && onClose?.()}
-              className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition disabled:opacity-60"
-              disabled={busy}
-              aria-label="Cerrar"
-              title="Cerrar"
-            >
-              <IconifyIcon icon="mdi:close" className="h-6 w-6 text-black/40" />
-            </button>
-          </div>
-
-          <div className="mt-5 grid gap-4">
-            <div>
-              <label className="text-[12px] font-semibold text-black/60">Nombre y apellido</label>
-              <input
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Ej: Jazmín Carrión"
-                className="mt-2 w-full h-12 rounded-2xl border border-black/10 bg-white px-4 text-sm outline-none placeholder:text-black/30"
-                disabled={busy}
-              />
-            </div>
-
-            <div>
-              <label className="text-[12px] font-semibold text-black/60">Barrio</label>
-              <NeighborhoodPicker value={neighborhood} onChange={setNeighborhood} disabled={busy} />
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 flex items-center justify-end gap-3">
-          <button
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.button
             type="button"
+            className="fixed inset-0 z-[9998] bg-black/50"
             onClick={() => !busy && onClose?.()}
-            disabled={busy}
-            className="h-11 rounded-full bg-black/[0.04] px-5 text-[13px] font-semibold text-black/70 active:scale-[0.98] transition"
-          >
-            Cancelar
-          </button>
+            aria-label="Cerrar"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          />
 
-          <button
-            type="button"
-            onClick={() =>
-              onSave?.({
-                full_name: fullName.trim(),
-                neighborhood: neighborhood.trim(),
-              })
-            }
-            disabled={!canSave}
-            className={[
-              "h-11 rounded-full px-6 text-[13px] font-semibold text-white shadow-[0_10px_22px_rgba(30,47,93,0.18)] active:scale-[0.98] transition",
-              canSave ? "bg-[#1E2F5D]" : "bg-[#1E2F5D]/50",
-            ].join(" ")}
+          <motion.div
+            className="fixed inset-x-0 bottom-0 z-[9999] w-full"
+            initial={{ y: 40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 40, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 420, damping: 34 }}
           >
-            {busy ? "Guardando..." : "Guardar"}
-          </button>
+            <div className="mx-auto w-full max-w-[460px] px-4">
+              <div className="rounded-t-[28px] bg-white shadow-2xl px-5 pt-4 pb-6 overflow-x-hidden">
+                <div className="flex justify-center">
+                  <div className="h-1.5 w-12 rounded-full bg-black/10" />
+                </div>
+
+                <div className="mt-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-[18px] font-extrabold text-[#3D3D3D]">Editar perfil</h3>
+                    <p className="mt-1 text-[12px] text-black/50">Mantené tu perfil actualizado.</p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => !busy && onClose?.()}
+                    className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition disabled:opacity-60"
+                    disabled={busy}
+                    aria-label="Cerrar"
+                    title="Cerrar"
+                  >
+                    <IconifyIcon icon="mdi:close" className="h-6 w-6 text-black/40" />
+                  </button>
+                </div>
+
+                <div className="mt-5 grid gap-3 pr-1">
+                  <InputPill
+                    label="Nombre y apellido"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Ej: Jazmín Carrión"
+                    disabled={busy}
+                    icon="mdi:account-outline"
+                  />
+
+                  <NeighborhoodCombobox value={neighborhood} onChange={(v) => setNeighborhood(v)} disabled={busy} />
+
+                  {/* ✅ SOLO después de tocar Guardar */}
+                  {neighborhoodTouched && norm(neighborhood).length > 0 && !neighborhoodValid ? (
+                    <div className="rounded-[18px] bg-red-50 px-4 py-3">
+                      <p className="text-[12px] font-semibold text-red-700">
+                        Ese barrio no está dentro de Vicente López.
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="mt-5 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => !busy && onClose?.()}
+                    disabled={busy}
+                    className="flex-1 h-[56px] rounded-full bg-black/[0.04] text-[14px] font-extrabold text-black/70 active:scale-[0.99] transition"
+                  >
+                    Cancelar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={trySave}
+                    disabled={!canSave}
+                    className={[
+                      "flex-1 h-[56px] rounded-full text-[14px] font-extrabold text-white shadow-[0_10px_24px_rgba(30,47,93,0.22)] active:scale-[0.99] transition",
+                      canSave ? "bg-[#1E2F5D]" : "bg-[#1E2F5D]/50",
+                    ].join(" ")}
+                  >
+                    {busy ? "Guardando..." : "Guardar"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/* ---------------- Skeleton (igual provider) ---------------- */
+function ProfileSkeleton() {
+  return (
+    <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
+      <div className="w-full pt-[40px] pb-24 box-border">
+        <div
+          className="mx-auto w-full max-w-[460px] box-border overflow-x-hidden"
+          style={{
+            paddingLeft: "16px",
+            paddingRight: "16px",
+            paddingInline: "max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right))",
+          }}
+        >
+          <div className="h-7 w-32 rounded bg-black/10 animate-pulse" />
+          <div className="mt-2 h-4 w-72 rounded bg-black/10 animate-pulse" />
+
+          <div className="mt-5 rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] p-5 animate-pulse">
+            <div className="flex items-start gap-4">
+              <div className="h-[76px] w-[76px] rounded-[26px] bg-black/10" />
+              <div className="flex-1">
+                <div className="h-5 w-44 rounded bg-black/10" />
+                <div className="mt-3 h-4 w-36 rounded bg-black/10" />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3">
+            <div className="h-[72px] rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] animate-pulse" />
+            <div className="h-[72px] rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] animate-pulse" />
+            <div className="h-[72px] rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] animate-pulse" />
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
+/* ---------------- page ---------------- */
 export default function Profile() {
   const nav = useNavigate();
   const toast = useToast();
@@ -266,7 +477,6 @@ export default function Profile() {
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // ✅ favoritos count (sin joins raros)
   const [favCount, setFavCount] = useState(0);
 
   const email = user?.email || "";
@@ -285,6 +495,12 @@ export default function Profile() {
 
   async function handleSave(patch) {
     if (!user?.id) return;
+
+    if (!isAllowedNeighborhood(patch.neighborhood)) {
+      toast.error("Barrio inválido", "Elegí un barrio dentro de Vicente López.");
+      return;
+    }
+
     try {
       setSaving(true);
       const updated = await updateMyProfile(user.id, patch);
@@ -318,111 +534,118 @@ export default function Profile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  if (profileLoading && !profile) {
-    return <div className="min-h-screen bg-[#F5F5F5] p-6">Cargando…</div>;
-  }
+  if (profileLoading && !profile) return <ProfileSkeleton />;
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
-      <div className="w-full px-6 pt-[40px] pb-6 box-border">
-        {/* Top bar */}
-        <div className="relative flex items-center justify-center">
-          <IconButton onClick={() => nav(-1)} title="Volver" className="absolute left-0">
-            <IconifyIcon icon="mdi:chevron-left" className="h-7 w-7 text-black/60" />
-          </IconButton>
-
-          <h1 className="text-[18px] font-extrabold text-[#3D3D3D]">Perfil</h1>
-
-          <IconButton onClick={() => setEditOpen(true)} title="Editar" className="absolute right-0" disabled={!user?.id}>
-            <IconifyIcon icon="mdi:pencil" className="h-6 w-6 text-black/40" />
-          </IconButton>
-        </div>
-
-        {/* Header card */}
-        <CardShell className="mt-5 p-5">
-          <div className="flex items-start gap-4">
-            {profile?.avatar_url ? (
-              <div className="h-[68px] w-[68px] rounded-[26px] overflow-hidden bg-black/[0.04] shrink-0">
-                <img src={profile.avatar_url} alt={fullName || "Perfil"} className="h-full w-full object-cover" />
-              </div>
-            ) : (
-              <InitialsAvatar name={fullName || email} />
-            )}
-
-            <div className="flex-1 min-w-0">
-              <p className="text-[18px] font-extrabold text-[#3D3D3D] truncate">{fullName || "Tu perfil"}</p>
-
-              <div className="mt-2 flex items-center gap-2 flex-wrap">
-                <RolePill role={profile?.role || role} />
-
-                {!!email && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-black/[0.04] px-3 py-1 text-[12px] font-semibold text-black/55">
-                    <IconifyIcon icon="mdi:email-outline" className="h-4 w-4 text-black/35" />
-                    <span className="max-w-[180px] truncate">{email}</span>
-                  </span>
-                )}
-
-                <span className="inline-flex items-center gap-1 rounded-full bg-black/[0.04] px-3 py-1 text-[12px] font-semibold text-black/55">
-                  <IconifyIcon icon="mdi:map-marker" className="h-4 w-4 text-black/35" />
-                  <span className="max-w-[180px] truncate">{neighborhood || "Sin barrio"}</span>
-                </span>
-              </div>
-
-              <p className="mt-3 text-[12px] text-black/45">Gestioná tu cuenta y tus preferencias desde acá.</p>
+      <div className="w-full pt-[40px] pb-24 box-border overflow-x-hidden">
+        <div
+          className="mx-auto w-full max-w-[460px] box-border overflow-x-hidden"
+          style={{
+            paddingLeft: "max(16px, env(safe-area-inset-left))",
+            paddingRight: "max(16px, env(safe-area-inset-right))",
+          }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-[22px] font-extrabold text-[#3D3D3D] leading-tight">Perfil</h1>
+              <p className="mt-1 text-[13px] text-black/45 leading-relaxed">Gestioná tu cuenta y preferencias</p>
             </div>
+
+            <IconButton onClick={() => setEditOpen(true)} title="Editar" disabled={!user?.id}>
+              <IconifyIcon icon="mdi:pencil" className="h-6 w-6 text-black/40" />
+            </IconButton>
           </div>
-        </CardShell>
 
-        {/* Info */}
-        <div className="mt-4">
-          <CardShell className="px-5">
-            <InfoRow icon="mdi:account" label="Nombre" value={fullName} />
-            <div className="h-px w-full bg-black/5" />
-            <InfoRow icon="mdi:email-outline" label="Email" value={email} />
-            <div className="h-px w-full bg-black/5" />
-            <InfoRow icon="mdi:map-marker-outline" label="Barrio" value={neighborhood} />
+          <CardShell className="mt-5 p-5">
+            <div className="flex items-center gap-4 min-w-0">
+              {profile?.avatar_url ? (
+                <div className="h-[76px] w-[76px] rounded-[26px] overflow-hidden bg-black/[0.04] shrink-0">
+                  <img src={profile.avatar_url} alt={fullName || "Perfil"} className="h-full w-full object-cover" />
+                </div>
+              ) : (
+                <InitialsAvatar name={fullName || email} />
+              )}
+
+              <div className="min-w-0">
+                <p className="text-[18px] font-extrabold text-[#3D3D3D] truncate">{fullName || "Tu perfil"}</p>
+                <div className="mt-2">
+                  <RolePill role={profile?.role || role || "client"} />
+                </div>
+              </div>
+            </div>
           </CardShell>
-        </div>
 
-        {/* Accesos (incluye Favoritos como el mismo formato) */}
-        <div className="mt-4 grid gap-3">
-          <RowButton
-            icon="mdi:heart-outline"
-            title="Favoritos"
-            desc="Prestadores guardados para volver rápido"
-            onClick={() => nav("/client/favorites")}
-            right={
-              <span className="inline-flex items-center justify-center h-7 min-w-[28px] px-2 rounded-full bg-black/[0.04] text-[12px] font-extrabold text-black/55">
-                {favCount}
-              </span>
-            }
-          />
+          <div className="mt-4">
+            <CardShell className="px-5">
+              <InfoRow icon="mdi:account" label="Nombre" value={fullName} />
+              <div className="h-px w-full bg-black/5" />
+              <InfoRow icon="mdi:email-outline" label="Email" value={email} />
+              <div className="h-px w-full bg-black/5" />
+              <InfoRow icon="mdi:map-marker-outline" label="Barrio" value={neighborhood} />
+            </CardShell>
+          </div>
 
-          <RowButton icon="mdi:clipboard-text-outline" title="Mis solicitudes" desc="Seguimiento de pedidos, cancelaciones y reseñas" onClick={() => nav("/client/requests")} />
-          <RowButton icon="mdi:bell-outline" title="Notificaciones" desc="Preferencias y avisos importantes" onClick={() => nav("/client/notifications")} />
-          <RowButton icon="mdi:help-circle-outline" title="Ayuda y soporte" desc="Preguntas frecuentes y contacto" onClick={() => toast.info("Soporte", "Después armamos una pantalla simple de ayuda.")} />
-          <RowButton icon="mdi:shield-outline" title="Privacidad y términos" desc="Información legal de la app" onClick={() => toast.info("Legal", "Luego sumamos la pantalla legal.")} />
-        </div>
+          <div className="mt-4 grid gap-3">
+            <RowButton
+              icon="mdi:heart-outline"
+              title="Favoritos"
+              desc="Prestadores guardados para volver rápido"
+              onClick={() => nav("/client/favorites")}
+              right={
+                <span className="inline-flex items-center justify-center h-7 min-w-[24px] px-2 rounded-full bg-black/[0.04] text-[11px] font-extrabold text-black/55">
+                  {favCount}
+                </span>
+              }
+            />
 
-        {/* Logout */}
-        <div className="mt-4">
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={loggingOut}
-            className={[
-              "w-full rounded-full py-3 font-semibold transition active:scale-[0.99]",
-              "bg-white border border-black/10 text-[#3D3D3D]",
-              "shadow-[0_8px_18px_rgba(0,0,0,0.06)]",
-              loggingOut ? "opacity-60" : "",
-            ].join(" ")}
-          >
-            {loggingOut ? "Cerrando sesión…" : "Cerrar sesión"}
-          </button>
+            <RowButton
+              icon="mdi:history"
+              title="Mi historial"
+              desc="Tus solicitudes pasadas y estados"
+              onClick={() => nav("/client/history")}
+            />
+
+            <RowButton
+              icon="mdi:help-circle-outline"
+              title="Ayuda y soporte"
+              desc="Preguntas frecuentes y contacto"
+              onClick={() => nav("/client/help")}
+            />
+
+            <RowButton
+              icon="mdi:shield-outline"
+              title="Privacidad y términos"
+              desc="Información legal de la app"
+              onClick={() => nav("/client/legal")}
+            />
+          </div>
+
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className={[
+                "w-full rounded-full py-3 font-semibold transition active:scale-[0.99] box-border",
+                "bg-white border border-black/10 text-[#3D3D3D]",
+                "shadow-[0_8px_18px_rgba(0,0,0,0.06)]",
+                loggingOut ? "opacity-60" : "",
+              ].join(" ")}
+            >
+              {loggingOut ? "Cerrando sesión…" : "Cerrar sesión"}
+            </button>
+          </div>
         </div>
       </div>
 
-      <EditProfileModal open={editOpen} onClose={() => !saving && setEditOpen(false)} onSave={handleSave} busy={saving} initial={profile} />
+      <EditProfileModal
+        open={editOpen}
+        onClose={() => !saving && setEditOpen(false)}
+        onSave={handleSave}
+        busy={saving}
+        initial={profile}
+      />
     </div>
   );
 }

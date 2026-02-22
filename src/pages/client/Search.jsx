@@ -2,8 +2,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { listActiveServices } from "../../services/services";
+import { supabase } from "../../services/supabase";
 import { Icon as IconifyIcon } from "@iconify/react";
 import { motion } from "framer-motion";
+
 
 function normalizeStr(v) {
   const s = (v == null ? "" : typeof v === "string" ? v : String(v))
@@ -14,6 +16,16 @@ function normalizeStr(v) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, " ");
+}
+
+/** Debounce simple */
+function useDebouncedValue(value, delay = 260) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
 }
 
 const RECENTS_KEY = "orby_search_recents_v2";
@@ -41,23 +53,6 @@ function upsertRecent(term) {
   return next;
 }
 
-function IconButton({ onClick, title, children, className = "" }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      aria-label={title}
-      className={[
-        "h-11 w-11 rounded-full bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)] grid place-items-center shrink-0 active:scale-[0.98] transition",
-        className,
-      ].join(" ")}
-    >
-      {children}
-    </button>
-  );
-}
-
 function VerifiedBadgeIcon({ className = "h-[14px] w-[14px]" }) {
   return (
     <IconifyIcon
@@ -69,17 +64,9 @@ function VerifiedBadgeIcon({ className = "h-[14px] w-[14px]" }) {
 
 const CATEGORIES = [
   { key: "Hogar y reparaciones", label: "Hogar y\nreparaciones", icon: "tools" },
-  {
-    key: "Educación y habilidades",
-    label: "Educación y\nhabilidades",
-    icon: "school",
-  },
+  { key: "Educación y habilidades", label: "Educación y\nhabilidades", icon: "school" },
   { key: "Cuidado y bienestar", label: "Cuidado y\nbienestar", icon: "lotus" },
-  {
-    key: "Eventos y entretenimiento",
-    label: "Eventos y\nentretenimiento",
-    icon: "party",
-  },
+  { key: "Eventos y entretenimiento", label: "Eventos y\nentretenimiento", icon: "party" },
 ];
 
 function CategoryIcon({ name }) {
@@ -100,9 +87,11 @@ function CategoryIcon({ name }) {
   );
 }
 
-function CardShell({ children, className = "" }) {
+/** ✅ CardShell ahora pasa props (onClick, etc.) */
+function CardShell({ children, className = "", ...props }) {
   return (
     <div
+      {...props}
       className={[
         "w-full rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] overflow-hidden",
         className,
@@ -126,7 +115,6 @@ function SectionTitle({ children, right }) {
 function SearchHomeSkeleton() {
   return (
     <div className="mt-6 animate-pulse">
-      {/* Recientes */}
       <div>
         <div className="flex items-center justify-between">
           <div className="h-4 w-24 rounded bg-black/10" />
@@ -144,7 +132,6 @@ function SearchHomeSkeleton() {
         </CardShell>
       </div>
 
-      {/* Explorá rápido */}
       <div className="mt-6">
         <div className="h-4 w-32 rounded bg-black/10" />
 
@@ -163,10 +150,8 @@ function SearchHomeSkeleton() {
         </div>
       </div>
 
-      {/* Sugeridos */}
       <div className="mt-6">
         <div className="h-4 w-24 rounded bg-black/10" />
-
         <div className="mt-3 flex flex-wrap gap-2">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
@@ -180,37 +165,110 @@ function SearchHomeSkeleton() {
   );
 }
 
+function normalize(str = "") {
+  return String(str)
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function getServiceIcon(name = "", category = "") {
+  const n = normalize(name);
+  const c = normalize(category);
+
+  if (n.includes("alban")) return "mdi:hammer";
+  if (n.includes("carpinter")) return "mdi:tools";
+  if (n.includes("electric")) return "mdi:lightning-bolt";
+  if (n.includes("gas") || n.includes("calef")) return "mdi:fire";
+  if (n.includes("jardin")) return "mdi:flower";
+  if (n.includes("limpieza")) return "mdi:spray-bottle";
+  if (n.includes("pintura") || n.includes("pintor")) return "mdi:format-paint";
+
+  if (n.includes("masaj")) return "mdi:hand-heart";
+  if (n.includes("adultos") || n.includes("mayores") || n.includes("cuidado"))
+    return "mdi:account-heart";
+  if (n.includes("entrenamiento") || n.includes("personal")) return "mdi:dumbbell";
+  if (n.includes("paseador") || n.includes("mascota") || n.includes("perro"))
+    return "mdi:dog-service";
+
+  if (c.includes("educacion") || c.includes("habilidades")) {
+    if (n.includes("ingles") || n.includes("italiano")) return "mdi:translate";
+    if (n.includes("apoyo")) return "mdi:book-open-page-variant";
+    if (n.includes("guit")) return "mdi:guitar-acoustic";
+    if (n.includes("piano")) return "mdi:piano";
+  }
+
+  if (c.includes("eventos") || c.includes("entretenimiento")) {
+    if (n.includes("dj")) return "mdi:music";
+    if (n.includes("fot")) return "mdi:camera";
+    if (n.includes("catering")) return "mdi:food";
+  }
+
+  return "mdi:briefcase-outline";
+}
+
+function RowIcon({ icon }) {
+  return (
+    <span className="h-[44px] w-[44px] rounded-full bg-[#D5E0F2] grid place-items-center shrink-0">
+      <IconifyIcon icon={icon} className="h-[22px] w-[22px] text-[#2A4691]" />
+    </span>
+  );
+}
+
+const STOPWORDS = new Set([
+  "de", "del", "la", "el", "los", "las", "y", "en", "para", "por", "con", "a",
+  "un", "una", "unos", "unas",
+  "clase", "clases", "servicio", "servicios"
+]);
+
+function singularizeToken(t) {
+  if (t.length <= 3) return t;
+  if (t.endsWith("es") && t.length > 4) return t.slice(0, -2); // clases -> clase, masajes -> masaje
+  if (t.endsWith("s") && t.length > 4) return t.slice(0, -1);
+  return t;
+}
+
+function buildQueryTokens(raw) {
+  const base = normalizeStr(raw);
+  const tokens = base.split(" ").filter(Boolean).filter((t) => !STOPWORDS.has(t));
+
+  const expanded = [];
+  for (const t of tokens) {
+    expanded.push(t);
+    const s = singularizeToken(t);
+    if (s && s !== t) expanded.push(s);
+  }
+
+  return Array.from(new Set(expanded));
+}
+
 export default function Search() {
   const nav = useNavigate();
   const location = useLocation();
   const [params, setParams] = useSearchParams();
 
+  const fromHomeSearch = !!location.state?.fromHomeSearch;
+
   const initialQ = params.get("q") || "";
   const [q, setQ] = useState(initialQ);
+
+  const debouncedQ = useDebouncedValue(q, 260);
+  const hasQuery = !!debouncedQ.trim();
 
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
   const [err, setErr] = useState("");
 
+  const [catalog, setCatalog] = useState([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+
+  const loadingAny = loading || catalogLoading; // ✅ ACÁ (después de los states)
+
   const [recents, setRecents] = useState(() => loadRecents());
+  const [showExtras] = useState(true);
 
-  const fromHomeSearch = !!location.state?.fromHomeSearch;
-  const [showExtras, setShowExtras] = useState(!fromHomeSearch);
-
-  // Servicio abierto en resultados (para ver prestadores debajo)
-  const [openServiceKey, setOpenServiceKey] = useState(null);
-
-  useEffect(() => {
-    setQ(initialQ);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialQ]);
-
-  useEffect(() => {
-    if (!fromHomeSearch) return;
-    const t = setTimeout(() => setShowExtras(true), 260);
-    return () => clearTimeout(t);
-  }, [fromHomeSearch]);
-
+  // Cargar data una sola vez
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -228,22 +286,60 @@ export default function Search() {
     return () => (alive = false);
   }, []);
 
-  const hasQuery = !!q.trim();
+  // ✅ NUEVO: cargar catálogo (service_catalog) para que el servicio aparezca aunque no haya prestadores
+  useEffect(() => {
+    let alive = true;
 
-  function applyQuery(nextQ) {
-    const value = (nextQ ?? q).trim();
+    (async () => {
+      try {
+        setCatalogLoading(true);
 
-    if (value) setRecents(upsertRecent(value));
+        const { data, error } = await supabase
+          .from("service_catalog")
+          .select("id, name, category, pricing_type, fixed_price, currency, is_active")
+          .eq("is_active", true)
+          .order("name", { ascending: true });
+
+        if (error) throw error;
+        if (alive) setCatalog(data || []);
+      } catch (e) {
+        console.warn("catalog fetch failed:", e?.message || e);
+        if (alive) setCatalog([]);
+      } finally {
+        if (alive) setCatalogLoading(false);
+      }
+    })();
+
+    return () => (alive = false);
+  }, []);
+
+
+  // Mantener URL q=... (el estado vive en la URL también)
+  useEffect(() => {
+    const value = debouncedQ.trim();
+    const next = new URLSearchParams(params);
 
     if (!value) {
-      const next = new URLSearchParams(params);
-      next.delete("q");
-      setParams(next, { replace: true });
+      if (next.has("q")) {
+        next.delete("q");
+        setParams(next, { replace: true });
+      }
       return;
     }
 
-    setParams({ q: value }, { replace: true });
-  }
+    if (next.get("q") !== value) {
+      next.set("q", value);
+      setParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQ]);
+
+  // Guardar recents cuando “se asentó” la búsqueda (no cada tecla)
+  useEffect(() => {
+    const value = debouncedQ.trim();
+    if (!value) return;
+    setRecents(upsertRecent(value));
+  }, [debouncedQ]);
 
   function clearAll() {
     setQ("");
@@ -252,94 +348,58 @@ export default function Search() {
     setParams(next, { replace: true });
   }
 
-  function goBackClean() {
-    nav("/client", { replace: true, state: { disableHomeShared: true } });
+  // ✅ Separar resultados: servicios (desde service_catalog) vs prestadores (desde items)
+const { matchedServices, matchedProviders } = useMemo(() => {
+  const term = normalizeStr(debouncedQ);
+  if (!term) return { matchedServices: [], matchedProviders: [] };
+
+ const tokens = buildQueryTokens(debouncedQ);
+
+  // ✅ SERVICIOS: buscar en catálogo (service_catalog)
+  const services = [];
+  for (const c of catalog || []) {
+    const hay = [c?.name, c?.category].map(normalizeStr).filter(Boolean).join(" ");
+    const ok = tokens.length > 0 && tokens.every((t) => hay.includes(t));    if (ok) services.push(c);
   }
 
-  const filteredProviders = useMemo(() => {
-    const term = normalizeStr(q);
-    if (!term) return [];
+  // ✅ PRESTADORES: buscar en lo que devuelve listActiveServices()
+  const providersMap = new Map();
+  for (const o of items || []) {
+    const prov = o?.provider || o?.profiles;
 
-    const tokens = term.split(" ").filter(Boolean);
+    const providerHay = [prov?.full_name, prov?.neighborhood]
+      .map(normalizeStr)
+      .filter(Boolean)
+      .join(" ");
 
-    return (items || []).filter((o) => {
-      const cat = o?.catalog || o?.service_catalog;
-      const prov = o?.provider || o?.profiles;
+    const matchProvider = tokens.every((t) => providerHay.includes(t));
 
-      const hay = [
-        cat?.name,
-        cat?.category?.name,
-        cat?.category,
-        cat?.subcategory?.name,
-        cat?.subcategory,
-        prov?.full_name,
-        prov?.neighborhood,
-      ]
-        .map(normalizeStr)
-        .filter(Boolean)
-        .join(" ");
-
-      return tokens.every((t) => hay.includes(t));
-    });
-  }, [items, q]);
-
-  // Agrupar por servicio y listar prestadores debajo
-  const groupedResults = useMemo(() => {
-    const map = new Map();
-
-    for (const o of filteredProviders || []) {
-      const cat = o?.catalog || o?.service_catalog;
-
-      const key =
-        cat?.id ??
-        normalizeStr(cat?.name) ??
-        o?.catalog_id ??
-        o?.service_catalog_id ??
-        o?.id;
-
-      if (!map.has(key)) {
-        map.set(key, { key, cat, rows: [] });
-      }
-      map.get(key).rows.push(o);
+    if (matchProvider && prov?.id && !providersMap.has(prov.id)) {
+      providersMap.set(prov.id, {
+        provider: prov,
+        providerServiceId: o?.id,
+      });
     }
+  }
 
-    return Array.from(map.values()).sort(
-      (a, b) => (b.rows?.length || 0) - (a.rows?.length || 0)
-    );
-  }, [filteredProviders]);
+  return {
+    matchedServices: services.sort((a, b) =>
+      String(a?.name || "").localeCompare(String(b?.name || ""), "es")
+    ),
+    matchedProviders: Array.from(providersMap.values()).sort((a, b) =>
+      String(a?.provider?.full_name || "").localeCompare(String(b?.provider?.full_name || ""), "es")
+    ),
+  };
+}, [catalog, items, debouncedQ]);
 
-  // Cuando cambia el query, reseteamos el desplegado; cuando hay resultados, abrimos el primero
-  useEffect(() => {
-    if (!hasQuery) {
-      setOpenServiceKey(null);
-      return;
-    }
-    setOpenServiceKey(null);
-  }, [hasQuery, q]);
 
-  useEffect(() => {
-    if (!hasQuery) return;
-    if (openServiceKey != null) return;
-    if (groupedResults.length > 0) setOpenServiceKey(groupedResults[0].key);
-  }, [hasQuery, groupedResults, openServiceKey]);
 
   const suggestedForYou = useMemo(
     () => ["Limpieza", "Electricidad", "Inglés", "Masajes", "Carpintería", "Pintura"],
     []
   );
 
-  const showEmptyResults =
-    !loading && !err && hasQuery && filteredProviders.length === 0;
-
-  const SearchBarWrapper = fromHomeSearch ? motion.div : "div";
-  const searchBarWrapperProps = fromHomeSearch
-    ? {
-        layoutId: "orby-searchbar",
-        transition: {
-          layout: { type: "spring", stiffness: 520, damping: 42, mass: 0.9 },
-        },
-      }
-    : {};
+  const searchBarWrapperProps = {};
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
@@ -351,18 +411,14 @@ export default function Search() {
 
         {/* Search bar */}
         <div className="relative">
-          <SearchBarWrapper {...searchBarWrapperProps}>
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
             <div className="w-full flex items-center gap-2 rounded-full bg-white px-5 py-4 shadow-[0_4px_4.8px_rgba(0,0,0,0.06)]">
-              <IconifyIcon
-                icon="mdi:magnify"
-                className="h-5 w-5 text-black/35 shrink-0"
-              />
+              <IconifyIcon icon="mdi:magnify" className="h-5 w-5 text-black/35 shrink-0" />
 
               <input
-                autoFocus={fromHomeSearch}
+                autoFocus
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && applyQuery()}
                 placeholder="Buscar servicio o prestador"
                 className="min-w-0 w-full bg-transparent outline-none text-sm text-[#3D3D3D] placeholder:text-black/35"
               />
@@ -375,34 +431,21 @@ export default function Search() {
                   aria-label="Limpiar"
                   title="Limpiar"
                 >
-                  <IconifyIcon
-                    icon="mdi:close"
-                    className="h-5 w-5 text-black/40"
-                  />
+                  <IconifyIcon icon="mdi:close" className="h-5 w-5 text-black/40" />
                 </button>
               )}
             </div>
-          </SearchBarWrapper>
-
-          {/* Flecha */}
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-[54px]">
-            <IconButton onClick={goBackClean} title="Volver">
-              <span className="text-xl leading-none">‹</span>
-            </IconButton>
-          </div>
+          </motion.div>
         </div>
 
         {err && <p className="mt-4 text-sm text-red-600">{err}</p>}
 
-        <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.18 }}
-        >
-          {loading && !hasQuery && <SearchHomeSkeleton />}
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
+          {/* Loading states */}
+          {loadingAny && !hasQuery && <SearchHomeSkeleton />}
 
-          {loading && hasQuery && (
-            <div className="mt-6 grid gap-3 animate-pulse">
+            {loadingAny && hasQuery && (
+              <div className="mt-6 grid gap-3 animate-pulse">
               {Array.from({ length: 6 }).map((_, i) => (
                 <CardShell key={i} className="p-4">
                   <div className="flex items-start gap-3">
@@ -422,7 +465,7 @@ export default function Search() {
             </div>
           )}
 
-          {!loading && !err && (
+          {!loadingAny && !err && (
             <>
               {!hasQuery && (
                 <>
@@ -453,16 +496,10 @@ export default function Search() {
                           <button
                             key={t}
                             type="button"
-                            onClick={() => {
-                              setQ(t);
-                              applyQuery(t);
-                            }}
+                            onClick={() => setQ(t)}
                             className="shrink-0 inline-flex items-center gap-2 rounded-full bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)] px-3 py-2 text-[12px] font-semibold text-[#3D3D3D] active:scale-[0.98]"
                           >
-                            <IconifyIcon
-                              icon="mdi:history"
-                              className="h-4 w-4 text-black/35"
-                            />
+                            <IconifyIcon icon="mdi:history" className="h-4 w-4 text-black/35" />
                             {t}
                           </button>
                         ))}
@@ -471,18 +508,11 @@ export default function Search() {
                       <CardShell className="mt-3 p-4">
                         <div className="flex items-center gap-3 text-black/55">
                           <span className="h-9 w-9 rounded-full bg-black/[0.04] grid place-items-center">
-                            <IconifyIcon
-                              icon="mdi:history"
-                              className="h-5 w-5 text-black/35"
-                            />
+                            <IconifyIcon icon="mdi:history" className="h-5 w-5 text-black/35" />
                           </span>
                           <div className="text-[13px] leading-tight">
-                            <p className="font-semibold text-[#3D3D3D]">
-                              Sin búsquedas aún
-                            </p>
-                            <p className="text-black/45">
-                              Probá con un servicio o una zona
-                            </p>
+                            <p className="font-semibold text-[#3D3D3D]">Sin búsquedas aún</p>
+                            <p className="text-black/45">Probá con un servicio o una zona</p>
                           </div>
                         </div>
                       </CardShell>
@@ -517,7 +547,6 @@ export default function Search() {
                             </p>
                           </div>
                         </button>
-
                       ))}
                     </div>
                   </div>
@@ -531,10 +560,7 @@ export default function Search() {
                         <button
                           key={t}
                           type="button"
-                          onClick={() => {
-                            setQ(t);
-                            applyQuery(t);
-                          }}
+                          onClick={() => setQ(t)}
                           className={[
                             "inline-flex items-center gap-2 rounded-full",
                             "bg-white border border-black/5",
@@ -544,10 +570,7 @@ export default function Search() {
                             "active:scale-[0.98] transition",
                           ].join(" ")}
                         >
-                          <IconifyIcon
-                            icon="mdi:magnify"
-                            className="h-4 w-4 text-black/35"
-                          />
+                          <IconifyIcon icon="mdi:magnify" className="h-4 w-4 text-black/35" />
                           {t}
                         </button>
                       ))}
@@ -558,174 +581,122 @@ export default function Search() {
 
               {hasQuery && (
                 <>
-                  <div className="mt-6 flex items-center justify-between">
-                    <h2 className="text-[16px] font-extrabold text-[#3D3D3D]">
-                      Resultados
-                    </h2>
-
-                    <span className="text-[12px] font-semibold text-black/35">
-                      {groupedResults.length} servicios · {filteredProviders.length} prestadores
-                    </span>
+                  <div className="mt-6">
+                    <h2 className="text-[16px] font-extrabold text-[#3D3D3D]">Resultados</h2>
+                    <p className="mt-1 text-[12px] text-black/40">
+                      {matchedServices.length} servicios · {matchedProviders.length} prestadores
+                    </p>
                   </div>
 
-                  <div className="mt-3 grid gap-3">
-                    {groupedResults.map((g) => {
-                      const cat = g.cat;
-                      const rows = g.rows || [];
-                      const isOpen = openServiceKey === g.key;
+                 {/* Servicios */}
+                  {matchedServices.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-[12px] font-semibold text-black/45 mb-2">Servicios</p>
 
-                      const isA = cat?.pricing_type === "A";
-                      const basePrices = rows
-                        .map((r) =>
-                          r?.base_price != null ? Number(r.base_price) : null
-                        )
-                        .filter((n) => Number.isFinite(n));
-                      const minPrice = basePrices.length
-                        ? Math.min(...basePrices)
-                        : null;
+                      <div className="grid gap-3">
+                        {matchedServices.map((cat) => {
+                          const categoryLabel = cat?.category?.name || cat?.category || "";
+                          const icon = getServiceIcon(cat?.name, categoryLabel);
 
-                      const headerPrice =
-                        isA && minPrice != null
-                          ? `Desde $${minPrice.toLocaleString("es-AR")}`
-                          : "Cotización";
+                          return (
+                            <CardShell
+                              key={cat.id}
+                              role="button"
+                              tabIndex={0}
+                              className="p-4 cursor-pointer active:scale-[0.99] transition"
+                              onClick={() => nav(`/client/services/catalog/${encodeURIComponent(cat.id)}`)}
+                              onKeyDown={(e) =>
+                                e.key === "Enter" && nav(`/client/services/catalog/${encodeURIComponent(cat.id)}`)
+                              }
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-4 min-w-0">
+                                  <RowIcon icon={icon} />
 
-                      const categoryLabel =
-                        cat?.category?.name || cat?.category || "—";
-
-                      return (
-                        <CardShell key={g.key} className="p-4">
-                          {/* Header Servicio */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setOpenServiceKey(isOpen ? null : g.key)
-                            }
-                            className="w-full text-left"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <h3 className="text-[15px] font-semibold text-[#3D3D3D] truncate">
-                                  {cat?.name || "Servicio"}
-                                </h3>
-                                <p className="mt-1 text-[12px] text-black/45 truncate">
-                                  {categoryLabel}
-                                </p>
-
-                                <p className="mt-2 text-[12px] font-semibold text-black/45">
-                                  {rows.length} prestador
-                                  {rows.length === 1 ? "" : "es"}
-                                </p>
-                              </div>
-
-                              <div className="shrink-0 text-right">
-                                <p className="text-[11px] text-black/40 font-semibold">
-                                  Precio
-                                </p>
-                                <p className="text-[14px] font-extrabold text-[#2A4691]">
-                                  {headerPrice}
-                                </p>
-
-                                <div className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-black/45">
-                                  <span>{isOpen ? "Ocultar" : "Ver"}</span>
-                                  <span className="text-base leading-none">
-                                    {isOpen ? "˄" : "˅"}
-                                  </span>
+                                  <div className="min-w-0">
+                                    <h3 className="text-[15px] font-extrabold text-[#3D3D3D] truncate">
+                                      {cat?.name || "Servicio"}
+                                    </h3>
+                                    <p className="mt-1 text-[12px] text-black/45 truncate">
+                                      {categoryLabel || "—"}
+                                    </p>
+                                  </div>
                                 </div>
+
+                                <IconifyIcon icon="mdi:chevron-right" className="h-5 w-5 text-black/35 shrink-0" />
                               </div>
+                            </CardShell>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Prestadores */}
+                  {matchedProviders.length > 0 && (
+                    <div className="mt-6">
+                      <p className="text-[12px] font-semibold text-black/45 mb-2">Prestadores</p>
+
+                      <div className="grid gap-3">
+                        {matchedProviders.map(({ provider: prov, providerServiceId }) => (
+                        <CardShell
+                          key={prov.id}
+                          role="button"
+                          tabIndex={0}
+                          className="p-4 cursor-pointer active:scale-[0.99] transition"
+                          onClick={() => nav(`/client/provider/${encodeURIComponent(providerServiceId)}`)}
+                          onKeyDown={(e) =>
+                            e.key === "Enter" && nav(`/client/provider/${encodeURIComponent(providerServiceId)}`)
+                          }
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="h-12 w-12 rounded-[16px] bg-white border border-black/10 overflow-hidden grid place-items-center shrink-0">
+                              {prov.avatar_url ? (
+                                <img
+                                  src={prov.avatar_url}
+                                  alt={prov.full_name || "Prestador"}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <IconifyIcon icon="mdi:account" className="h-6 w-6 text-black/25" />
+                              )}
                             </div>
-                          </button>
 
-                          {/* Lista Prestadores */}
-                          {isOpen && (
-                            <div className="mt-4 grid gap-2">
-                              {rows.map((o) => {
-                                const prov = o?.provider || o?.profiles;
-                                const avatar = prov?.avatar_url;
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[14px] font-extrabold text-[#3D3D3D] truncate">
+                                {prov.full_name || "Prestador"}
+                                {prov.provider_verified && (
+                                  <span className="inline-flex ml-2 align-middle">
+                                    <VerifiedBadgeIcon />
+                                  </span>
+                                )}
+                              </p>
 
-                                const isArow = cat?.pricing_type === "A";
-                                const price =
-                                  isArow && o?.base_price != null
-                                    ? `$${Number(o.base_price).toLocaleString(
-                                        "es-AR"
-                                      )}`
-                                    : null;
-
-                                return (
-                                  <button
-                                    key={o.id}
-                                    type="button"
-                                    onClick={() =>
-                                      nav(`/client/services/${o.id}/request`)
-                                    }
-                                    className="w-full rounded-[18px] bg-black/[0.02] border border-black/5 px-3 py-3 text-left active:scale-[0.99] transition"
-                                  >
-                                    <div className="flex items-center gap-3">
-                                      <div className="h-[44px] w-[44px] rounded-[14px] bg-white overflow-hidden shrink-0 grid place-items-center border border-black/5">
-                                        {avatar ? (
-                                          <img
-                                            src={avatar}
-                                            alt={prov?.full_name || "Prestador"}
-                                            className="h-full w-full object-cover"
-                                          />
-                                        ) : (
-                                          <IconifyIcon
-                                            icon="mdi:account"
-                                            className="h-6 w-6 text-black/25"
-                                          />
-                                        )}
-                                      </div>
-
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-[13px] text-[#3D3D3D] font-semibold truncate">
-                                          {prov?.full_name || "Prestador"}
-                                          {prov?.provider_verified && (
-                                            <span className="inline-flex ml-2 align-middle">
-                                              <VerifiedBadgeIcon />
-                                            </span>
-                                          )}
-                                        </p>
-
-                                        <p className="mt-1 text-[12px] text-black/45 flex items-center gap-2 truncate">
-                                          <IconifyIcon
-                                            icon="mdi:map-marker"
-                                            className="h-4 w-4 text-black/30 shrink-0"
-                                          />
-                                          <span className="truncate">
-                                            {prov?.neighborhood || "—"}
-                                          </span>
-                                        </p>
-                                      </div>
-
-                                      <div className="shrink-0 text-right">
-                                        <span
-                                          className={[
-                                            "inline-flex rounded-full px-3 py-1 text-[12px] font-semibold",
-                                            isArow
-                                              ? "bg-[#2A4691]/10 text-[#2A4691]"
-                                              : "bg-black/[0.04] text-black/55",
-                                          ].join(" ")}
-                                        >
-                                          {isArow ? "Precio fijo" : "Cotización"}
-                                        </span>
-
-                                        <p className="mt-2 text-[13px] font-extrabold text-[#2A4691]">
-                                          {price ? `Desde ${price}` : "Cotización"}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  </button>
-                                );
-                              })}
+                              <p className="mt-1 text-[12px] text-black/45 truncate">{prov.neighborhood || "—"}</p>
                             </div>
-                          )}
+
+                            <div className="shrink-0 flex flex-col items-end gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  nav(`/client/services/${encodeURIComponent(providerServiceId)}/request`);
+                                }}
+                                className="h-9 px-4 rounded-full bg-[#1E2F5D] text-white text-[12px] font-semibold shadow-[0_10px_18px_rgba(30,47,93,0.18)] active:scale-[0.98] transition"
+                              >
+                                Solicitar
+                              </button>
+                            </div>
+                          </div>
                         </CardShell>
-                      );
-                    })}
-                  </div>
+                      ))}
+                      </div>
+                    </div>
+                  )}
 
-                  {showEmptyResults && (
+                  {matchedServices.length === 0 && matchedProviders.length === 0 && (
                     <CardShell className="mt-6 p-4 text-sm text-black/60">
-                      No encontramos resultados para <b>{q.trim()}</b>.
+                      No encontramos resultados para <b>{debouncedQ.trim()}</b>.
                     </CardShell>
                   )}
                 </>

@@ -10,6 +10,7 @@ import { supabase } from "../../services/supabase";
 import { listProviderAvailability } from "../../services/availability";
 import { createRequest } from "../../services/requests";
 import { ensureAppointmentForRequest } from "../../services/appointments";
+import Loading from "../../components/Loading";
 
 function draftKey(id) {
   return `orby_request_draft_${id}`;
@@ -729,7 +730,7 @@ export default function ClientSchedule() {
     }
   }
 
-  if (loading) return <div className="min-h-screen bg-[#F5F5F5] p-6">Cargando…</div>;
+  if (loading) return <Loading />;
 
   if (err) {
     return (

@@ -6,6 +6,9 @@ import { AnimatePresence, motion } from "framer-motion";
 
 import { useAuth } from "../../hooks/useAuth";
 import { createProviderService, listCatalogServices } from "../../services/services";
+import { supabase } from "../../services/supabase";
+import Loading from "../../components/Loading";
+import { listProviderAvailability } from "../../services/availability";
 
 function CardShell({ children, className = "" }) {
   return (
@@ -47,16 +50,15 @@ function FieldButton({ label, value, placeholder, onClick, disabled }) {
         "mt-2 w-full h-12 rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.04)]",
         "px-4 flex items-center justify-between gap-3 text-left",
         "active:scale-[0.99] transition",
+        "min-w-0 overflow-hidden", // ✅ evita overflow horizontal
         disabled ? "opacity-60" : "",
       ].join(" ")}
     >
-      <span className="min-w-0">
+      <span className="min-w-0 overflow-hidden">
         <span className="block text-[14px] font-semibold text-[#3D3D3D] truncate">
           {value || placeholder}
         </span>
-        {label ? (
-          <span className="block text-[11px] text-black/40 truncate">{label}</span>
-        ) : null}
+        {label ? <span className="block text-[11px] text-black/40 truncate">{label}</span> : null}
       </span>
 
       <IconifyIcon icon="mdi:chevron-down" className="h-6 w-6 text-black/35 shrink-0" />
@@ -69,7 +71,7 @@ function SelectSheet({ open, title, subtitle, options, selectedValue, onClose, o
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[9999]">
+        <div className="fixed inset-0 z-[9999] overflow-x-hidden">
           <motion.button
             type="button"
             className="absolute inset-0 bg-black/40"
@@ -79,9 +81,19 @@ function SelectSheet({ open, title, subtitle, options, selectedValue, onClose, o
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           />
-          <div className="absolute inset-x-0 bottom-0 p-4 pb-6">
+
+          {/* ✅ safe-area + sin overflow x */}
+          <div
+            className="absolute inset-x-0 bottom-0 overflow-x-hidden"
+            style={{
+              paddingLeft: "max(12px, env(safe-area-inset-left))",
+              paddingRight: "max(12px, env(safe-area-inset-right))",
+              paddingBottom: "max(18px, env(safe-area-inset-bottom))",
+              paddingTop: 16,
+            }}
+          >
             <motion.div
-              className="mx-auto w-full max-w-lg rounded-[28px] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.18)] overflow-hidden"
+              className="mx-auto w-full max-w-lg rounded-[26px] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.18)] overflow-hidden"
               initial={{ y: 90, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 90, opacity: 0 }}
@@ -91,17 +103,17 @@ function SelectSheet({ open, title, subtitle, options, selectedValue, onClose, o
             >
               <div className="h-1.5 w-12 bg-black/10 rounded-full mx-auto mt-3" />
 
-              <div className="p-5">
+              <div className="p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="text-[16px] font-extrabold text-[#3D3D3D]">{title}</h3>
-                    {subtitle ? <p className="mt-1 text-[12px] text-black/45">{subtitle}</p> : null}
+                    <h3 className="text-[16px] font-extrabold text-[#3D3D3D] truncate">{title}</h3>
+                    {subtitle ? <p className="mt-1 text-[12px] text-black/45 break-words">{subtitle}</p> : null}
                   </div>
 
                   <button
                     type="button"
                     onClick={onClose}
-                    className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition"
+                    className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition shrink-0"
                     aria-label="Cerrar"
                     title="Cerrar"
                   >
@@ -109,7 +121,8 @@ function SelectSheet({ open, title, subtitle, options, selectedValue, onClose, o
                   </button>
                 </div>
 
-                <div className="mt-4 grid gap-2 max-h-[55vh] overflow-y-auto pr-1">
+                {/* ✅ la lista nunca crea scroll horizontal */}
+                <div className="mt-4 grid gap-2 max-h-[55vh] overflow-y-auto overflow-x-hidden pr-1">
                   {options.map((opt) => {
                     const active = String(opt.value) === String(selectedValue);
                     return (
@@ -119,24 +132,18 @@ function SelectSheet({ open, title, subtitle, options, selectedValue, onClose, o
                         onClick={() => onSelect(opt.value)}
                         className={[
                           "w-full rounded-[18px] border px-4 py-3 text-left transition active:scale-[0.99]",
+                          "min-w-0 overflow-hidden", // ✅
                           active ? "border-[#1E2F5D]/25 bg-[#EAF2FF]" : "border-black/10 bg-white",
                         ].join(" ")}
                       >
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start justify-between gap-3 min-w-0">
                           <div className="min-w-0">
-                            <p className="text-[14px] font-semibold text-[#3D3D3D] truncate">
-                              {opt.label}
-                            </p>
-                            {opt.sub ? (
-                              <p className="mt-1 text-[12px] text-black/45 truncate">{opt.sub}</p>
-                            ) : null}
+                            <p className="text-[14px] font-semibold text-[#3D3D3D] truncate">{opt.label}</p>
+                            {opt.sub ? <p className="mt-1 text-[12px] text-black/45 truncate">{opt.sub}</p> : null}
                           </div>
 
                           {active ? (
-                            <IconifyIcon
-                              icon="mdi:check-decagram"
-                              className="h-5 w-5 text-[#4368C5] shrink-0 mt-[2px]"
-                            />
+                            <IconifyIcon icon="mdi:check" className="h-5 w-5 text-[#4368C5] shrink-0 mt-[2px]" />
                           ) : (
                             <span className="h-5 w-5 shrink-0" />
                           )}
@@ -155,15 +162,7 @@ function SelectSheet({ open, title, subtitle, options, selectedValue, onClose, o
 }
 
 /** Sheet especial para "Servicio" con buscador + chip Fijo/Cotización */
-function ServiceSelectSheet({
-  open,
-  title,
-  subtitle,
-  options,
-  selectedValue,
-  onClose,
-  onSelect,
-}) {
+function ServiceSelectSheet({ open, title, subtitle, options, selectedValue, onClose, onSelect }) {
   const [q, setQ] = useState("");
 
   useEffect(() => {
@@ -183,7 +182,7 @@ function ServiceSelectSheet({
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[9999]">
+        <div className="fixed inset-0 z-[9999] overflow-x-hidden">
           <motion.button
             type="button"
             className="absolute inset-0 bg-black/40"
@@ -194,9 +193,18 @@ function ServiceSelectSheet({
             exit={{ opacity: 0 }}
           />
 
-          <div className="absolute inset-x-0 bottom-0 p-4 pb-6">
+          {/* ✅ safe-area + sin overflow x */}
+          <div
+            className="absolute inset-x-0 bottom-0 overflow-x-hidden"
+            style={{
+              paddingLeft: "max(12px, env(safe-area-inset-left))",
+              paddingRight: "max(12px, env(safe-area-inset-right))",
+              paddingBottom: "max(18px, env(safe-area-inset-bottom))",
+              paddingTop: 16,
+            }}
+          >
             <motion.div
-              className="mx-auto w-full max-w-lg rounded-[28px] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.18)] overflow-hidden"
+              className="mx-auto w-full max-w-lg rounded-[26px] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.18)] overflow-hidden"
               initial={{ y: 90, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 90, opacity: 0 }}
@@ -206,19 +214,17 @@ function ServiceSelectSheet({
             >
               <div className="h-1.5 w-12 bg-black/10 rounded-full mx-auto mt-3" />
 
-              <div className="p-5">
+              <div className="p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="text-[16px] font-extrabold text-[#3D3D3D]">{title}</h3>
-                    {subtitle ? (
-                      <p className="mt-1 text-[12px] text-black/45">{subtitle}</p>
-                    ) : null}
+                    <h3 className="text-[16px] font-extrabold text-[#3D3D3D] truncate">{title}</h3>
+                    {subtitle ? <p className="mt-1 text-[12px] text-black/45 break-words">{subtitle}</p> : null}
                   </div>
 
                   <button
                     type="button"
                     onClick={onClose}
-                    className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition"
+                    className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition shrink-0"
                     aria-label="Cerrar"
                     title="Cerrar"
                   >
@@ -226,20 +232,22 @@ function ServiceSelectSheet({
                   </button>
                 </div>
 
-                <div className="mt-4">
-                  <div className="h-12 w-full rounded-full bg-black/[0.04] px-4 flex items-center gap-2">
+                {/* ✅ input no desborda */}
+                <div className="mt-4 min-w-0">
+                  <div className="h-12 w-full rounded-full bg-black/[0.04] px-4 flex items-center gap-2 min-w-0 overflow-hidden">
                     <IconifyIcon icon="mdi:magnify" className="h-5 w-5 text-black/35 shrink-0" />
                     <input
                       value={q}
                       onChange={(e) => setQ(e.target.value)}
                       placeholder="Buscar por nombre o categoría…"
-                      className="w-full bg-transparent outline-none text-[14px] font-medium text-[#3D3D3D] placeholder:text-black/35"
+                      className="w-full bg-transparent outline-none text-[14px] font-medium text-[#3D3D3D] placeholder:text-black/35 min-w-0"
                       inputMode="search"
                     />
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-2 max-h-[52vh] overflow-y-auto pr-1">
+                {/* ✅ lista: overflow-x-hidden + min-w-0 en todo */}
+                <div className="mt-4 grid gap-2 max-h-[52vh] overflow-y-auto overflow-x-hidden pr-1">
                   {filtered.map((o) => {
                     const active = String(o.id) === String(selectedValue);
                     const isFixed = o.pricing_type === "A";
@@ -251,18 +259,18 @@ function ServiceSelectSheet({
                         onClick={() => onSelect(o.id)}
                         className={[
                           "w-full rounded-[18px] border px-4 py-3 text-left transition active:scale-[0.99]",
+                          "min-w-0 overflow-hidden", // ✅
                           active ? "border-[#1E2F5D]/25 bg-[#F7FAFF]" : "border-black/10 bg-white",
                         ].join(" ")}
                       >
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center justify-between gap-3 min-w-0">
                           <div className="min-w-0">
-                            <p className="text-[14px] font-extrabold text-[#3D3D3D] truncate">
-                              {o.name}
-                            </p>
+                            <p className="text-[14px] font-extrabold text-[#3D3D3D] truncate">{o.name}</p>
                             <p className="mt-1 text-[12px] text-black/45 truncate">{o.category}</p>
                           </div>
 
-                          <span className="shrink-0 rounded-full px-3 py-1 text-[12px] font-semibold bg-black/[0.04] text-black/60">
+                          {/* ✅ chip siempre entra: evita agrandar el ancho */}
+                          <span className="shrink-0 rounded-full px-3 py-1 text-[12px] font-semibold bg-black/[0.04] text-black/60 whitespace-nowrap">
                             {isFixed ? "Fijo" : "Cotización"}
                           </span>
                         </div>
@@ -271,17 +279,20 @@ function ServiceSelectSheet({
                   })}
 
                   {filtered.length === 0 && (
-                    <div className="rounded-[18px] border border-black/10 bg-white p-4">
+                    <div className="rounded-[18px] border border-black/10 bg-white p-4 min-w-0 overflow-hidden">
                       <p className="text-[14px] font-semibold text-[#3D3D3D]">Sin resultados</p>
-                      <p className="mt-1 text-[12px] text-black/45">
-                        Probá con otro nombre o categoría.
-                      </p>
+                      <p className="mt-1 text-[12px] text-black/45">Probá con otro nombre o categoría.</p>
                     </div>
                   )}
                 </div>
               </div>
             </motion.div>
           </div>
+
+          {/* ✅ fuerza global contra “scroll fantasma” en mobile */}
+          <style>{`
+            html, body { overscroll-behavior-y: contain; }
+          `}</style>
         </div>
       )}
     </AnimatePresence>
@@ -294,16 +305,11 @@ function fmtMoneyARS(n) {
   return `$${num.toLocaleString("es-AR")}`;
 }
 
-/** ✅ Mensajes amigables para Supabase/Postgres */
 function friendlyErrorMessage(e) {
   const raw = String(e?.message || e || "").toLowerCase();
-
-  // Único por (provider_id, catalog_id) -> "provider_catalog_unique"
   if (raw.includes("provider_catalog_unique") || raw.includes("duplicate key value")) {
-    return "Ya publicaste este servicio. Elegí otro del catálogo o editá el que ya tenés publicado.";
+    return "Ya tenés este servicio registrado. Si está despublicado, volvé a publicarlo desde “Mis servicios”.";
   }
-
-  // fallback
   return e?.message || "No se pudo publicar el servicio.";
 }
 
@@ -320,6 +326,8 @@ export default function ServiceForm() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
+  const [needsAvailability, setNeedsAvailability] = useState(false);
+
   const [serviceSheetOpen, setServiceSheetOpen] = useState(false);
   const [durationSheetOpen, setDurationSheetOpen] = useState(false);
 
@@ -329,7 +337,7 @@ export default function ServiceForm() {
       try {
         const data = await listCatalogServices();
         if (alive) setCatalog(Array.isArray(data) ? data : []);
-      } catch (e) {
+      } catch {
         if (alive) setErr("No se pudo cargar el catálogo.");
       }
     })();
@@ -360,11 +368,45 @@ export default function ServiceForm() {
     []
   );
 
+  // ✅ regla: antes de publicar, debe tener disponibilidad configurada
+  async function providerHasAvailability(providerId) {
+    try {
+      const data = await listProviderAvailability(providerId);
+
+      if (Array.isArray(data)) {
+        const hasByDays = data.some((d) => {
+          const active = d?.is_active !== false;
+          const ranges = d?.ranges || d?.slots || d?.items || [];
+          return active && Array.isArray(ranges) && ranges.length > 0;
+        });
+
+        const hasRangesDirect = data.length > 0;
+
+        return hasByDays || hasRangesDirect;
+      }
+
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setErr("");
 
     if (!user?.id) return setErr("No hay usuario logueado.");
+    // ✅ disponibilidad obligatoria antes de publicar (sin redirigir)
+    setNeedsAvailability(false);
+
+    const hasAvail = await providerHasAvailability(user.id);
+    if (!hasAvail) {
+      setNeedsAvailability(true);
+      setErr("Antes de publicar un servicio, necesitás configurar tu disponibilidad.");
+      setLoading(false);
+      return; // ✅ no redirige
+    }
+
     if (!catalogId) return setErr("Elegí un servicio del catálogo.");
 
     if (isFixed) {
@@ -377,6 +419,35 @@ export default function ServiceForm() {
 
     setLoading(true);
     try {
+      const { data: existing, error: exErr } = await supabase
+        .from("provider_services")
+        .select("id, is_active")
+        .eq("provider_id", user.id)
+        .eq("catalog_id", catalogId)
+        .maybeSingle();
+
+      if (exErr) throw exErr;
+
+      if (existing?.id) {
+        if (existing.is_active) {
+          setErr("Este servicio ya está publicado.");
+          setLoading(false);
+          return;
+        }
+
+        const payload = {
+          is_active: true,
+          duration_minutes: d,
+          base_price: isFixed ? Number(basePrice) : null,
+        };
+
+        const { error: upErr } = await supabase.from("provider_services").update(payload).eq("id", existing.id);
+        if (upErr) throw upErr;
+
+        nav("/provider", { replace: true });
+        return;
+      }
+
       await createProviderService({
         provider_id: user.id,
         catalog_id: catalogId,
@@ -387,21 +458,23 @@ export default function ServiceForm() {
 
       nav("/provider", { replace: true });
     } catch (e2) {
-      setErr(friendlyErrorMessage(e2)); // ✅ acá
+      setErr(friendlyErrorMessage(e2));
     } finally {
       setLoading(false);
     }
   }
 
+  if (loading && catalog.length === 0) return <Loading />;
+
   return (
     <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
-      <div className="px-6 pt-[40px] pb-32">
+      <div className="px-4 sm:px-6 pt-[36px] sm:pt-[40px] pb-32 max-w-[520px] mx-auto">
         {/* Header */}
         <div className="relative flex items-center justify-center">
           <button
             type="button"
             onClick={() => nav(-1)}
-            className="absolute left-0 h-11 w-11 rounded-full bg-white shadow-[0_4px_4.8px_rgba(0,0,0,0.06)] grid place-items-center"
+            className="absolute left-0 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white shadow-[0_4px_4.8px_rgba(0,0,0,0.06)] grid place-items-center"
             aria-label="Volver"
             title="Volver"
           >
@@ -416,29 +489,30 @@ export default function ServiceForm() {
         </p>
 
         {/* Resumen */}
-        <CardShell className="mt-3 p-4">
-          <div className="flex items-start justify-between gap-3">
+        <CardShell className="mt-3 p-4 overflow-hidden">
+          <div className="flex items-start justify-between gap-3 min-w-0">
             <p className="text-[12px] font-semibold text-black/40">Resumen</p>
 
-            <div className="flex items-center gap-2 -mt-[2px]">
-              <Chip className="bg-[#EAF2FF] text-[#1E2F5D]">
+            {/* ✅ evita que el grupo de chips empuje el layout y genere scroll */}
+            <div className="flex items-center gap-2 -mt-[2px] shrink-0 flex-wrap justify-end">
+              <Chip className="bg-[#EAF2FF] text-[#1E2F5D] whitespace-nowrap">
                 {pricingType ? (isFixed ? "Precio fijo" : "Cotización") : "—"}
               </Chip>
-              <Chip className="bg-black/[0.04] text-black/55">{durationMin} min</Chip>
+              <Chip className="bg-black/[0.04] text-black/55 whitespace-nowrap">
+                {durationMin} min
+              </Chip>
             </div>
           </div>
 
-          <div className="mt-2">
+          <div className="mt-2 min-w-0">
             <p className="text-[15px] font-extrabold text-[#3D3D3D] truncate">
               {selected?.name || "Elegí un servicio"}
             </p>
-            <p className="mt-1 text-[12px] text-black/45 truncate">
-              {selected?.category || "—"}
-            </p>
+            <p className="mt-1 text-[12px] text-black/45 truncate">{selected?.category || "—"}</p>
           </div>
 
           {isFixed && (
-            <div className="mt-3 rounded-[18px] bg-[#F5F5F5] p-4">
+            <div className="mt-3 rounded-[18px] bg-[#F5F5F5] p-4 overflow-hidden">
               <p className="text-[12px] font-semibold text-black/45">Precio base</p>
               <p className="mt-1 text-[14px] font-extrabold text-[#2A4691]">
                 {basePrice ? fmtMoneyARS(basePrice) : "—"}
@@ -448,7 +522,7 @@ export default function ServiceForm() {
         </CardShell>
 
         {/* Form */}
-        <CardShell className="mt-4 p-4">
+        <CardShell className="mt-4 p-4 overflow-hidden">
           <form onSubmit={handleSubmit} className="grid gap-4">
             <div className="min-w-0">
               <FieldLabel>Servicio</FieldLabel>
@@ -474,10 +548,10 @@ export default function ServiceForm() {
               <div className="min-w-0">
                 <FieldLabel>Precio base</FieldLabel>
 
-                <div className="mt-2 h-12 w-full rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.04)] px-4 flex items-center gap-2">
+                <div className="mt-2 h-12 w-full rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.04)] px-4 flex items-center gap-2 min-w-0 overflow-hidden">
                   <span className="text-[14px] font-extrabold text-[#2A4691]">$</span>
                   <input
-                    className="w-full bg-transparent outline-none text-[14px] font-semibold text-[#3D3D3D] placeholder:text-black/35"
+                    className="w-full bg-transparent outline-none text-[14px] font-semibold text-[#3D3D3D] placeholder:text-black/35 min-w-0"
                     type="number"
                     min="1"
                     value={basePrice}
@@ -490,17 +564,23 @@ export default function ServiceForm() {
               </div>
             )}
 
-            {/* ✅ Aviso gris + estilo consistente */}
             {err && (
-              <div className="rounded-[18px] bg-black/[0.04] border border-black/10 px-4 py-3">
+              <div className="rounded-[18px] bg-black/[0.04] border border-black/10 px-4 py-3 overflow-hidden">
                 <div className="flex items-start gap-3">
-                  <span className="h-9 w-9 rounded-full bg-white border border-black/10 grid place-items-center shrink-0">
-                    <IconifyIcon icon="mdi:information-outline" className="h-5 w-5 text-black/45" />
-                  </span>
 
                   <div className="min-w-0">
                     <p className="text-[13px] font-semibold text-[#3D3D3D]">No se pudo publicar</p>
-                    <p className="mt-1 text-[12px] text-black/55">{err}</p>
+                    <p className="mt-1 text-[12px] text-black/55 break-words">{err}</p>
+                    {needsAvailability && (
+                      <button
+                        type="button"
+                        onClick={() => nav("/provider/availability")}
+                        className="mt-3 inline-flex items-center gap-2 h-10 px-4 rounded-full bg-white border border-black/10 text-[12px] font-extrabold text-[#1E2F5D] shadow-[0_8px_18px_rgba(0,0,0,0.05)] active:scale-[0.99] transition"
+                      >
+                        <IconifyIcon icon="mdi:calendar-clock-outline" className="h-4 w-4" />
+                        Configurar disponibilidad
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -510,18 +590,27 @@ export default function ServiceForm() {
       </div>
 
       {/* CTA fijo */}
-      <div className="fixed inset-x-0 bottom-[110px] z-[40] px-6">
-        <button
-          disabled={loading}
-          className="w-full h-[54px] rounded-full bg-[#1E2F5D] text-white text-[14px] font-semibold shadow-[0_14px_30px_rgba(30,47,93,0.28)] active:scale-[0.99] transition disabled:opacity-60"
-          type="button"
-          onClick={(e) => {
-            const form = e.currentTarget?.closest("body")?.querySelector("form");
-            if (form) form.requestSubmit();
-          }}
-        >
-          {loading ? "Publicando..." : "Publicar"}
-        </button>
+      <div
+        className="fixed inset-x-0 z-[40]"
+        style={{
+          bottom: "max(110px, calc(110px + env(safe-area-inset-bottom)))",
+          paddingLeft: "max(16px, env(safe-area-inset-left))",
+          paddingRight: "max(16px, env(safe-area-inset-right))",
+        }}
+      >
+        <div className="max-w-[520px] mx-auto">
+          <button
+            disabled={loading}
+            className="w-full h-[54px] rounded-full bg-[#1E2F5D] text-white text-[14px] font-semibold shadow-[0_14px_30px_rgba(30,47,93,0.28)] active:scale-[0.99] transition disabled:opacity-60"
+            type="button"
+            onClick={(e) => {
+              const form = e.currentTarget?.closest("body")?.querySelector("form");
+              if (form) form.requestSubmit();
+            }}
+          >
+            {loading ? "Publicando..." : "Publicar"}
+          </button>
+        </div>
       </div>
 
       {/* Servicio sheet */}
@@ -543,7 +632,13 @@ export default function ServiceForm() {
         open={durationSheetOpen}
         title="Duración"
         subtitle="Elegí el tiempo estimado del servicio."
-        options={durationOptions}
+        options={[
+          { value: "30", label: "30 min" },
+          { value: "45", label: "45 min" },
+          { value: "60", label: "60 min" },
+          { value: "90", label: "90 min" },
+          { value: "120", label: "120 min" },
+        ]}
         selectedValue={durationMin}
         onClose={() => setDurationSheetOpen(false)}
         onSelect={(v) => {

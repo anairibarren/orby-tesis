@@ -1,6 +1,6 @@
 // src/pages/client/Requests.jsx
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Icon as IconifyIcon } from "@iconify/react";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -23,8 +23,16 @@ function safeTS(iso) {
 function formatTurno(preferred_datetime) {
   if (!preferred_datetime) return { date: "—", time: "", ts: NaN };
   const d = new Date(preferred_datetime);
-  const date = d.toLocaleDateString("es-AR", { weekday: "short", day: "2-digit", month: "short" });
-  const time = d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const date = d.toLocaleDateString("es-AR", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+  });
+  const time = d.toLocaleTimeString("es-AR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
   return { date, time, ts: d.getTime() };
 }
 
@@ -35,8 +43,16 @@ function moneyARS(n) {
 }
 
 function computeAmountsForCard(r) {
-  const pricingType = r?.catalog?.pricing_type || r?.provider_service?.service_catalog?.pricing_type || null;
-  const baseFixed = r?.provider_service?.base_price != null ? Number(r.provider_service.base_price) : null;
+  const pricingType =
+    r?.catalog?.pricing_type ||
+    r?.provider_service?.service_catalog?.pricing_type ||
+    null;
+
+  const baseFixed =
+    r?.provider_service?.base_price != null
+      ? Number(r.provider_service.base_price)
+      : null;
+
   const quote = r?.quote_amount != null ? Number(r.quote_amount) : null;
 
   const base =
@@ -51,15 +67,10 @@ function computeAmountsForCard(r) {
       : null;
 
   const fee = base != null ? Math.round(base * 0.07 * 100) / 100 : null;
-  const total = base != null && fee != null ? Math.round((base + fee) * 100) / 100 : null;
+  const total =
+    base != null && fee != null ? Math.round((base + fee) * 100) / 100 : null;
 
   return { pricingType, base, fee, total };
-}
-
-function truncateText(v, max = 110) {
-  const s = String(v ?? "").trim();
-  if (!s) return "";
-  return s.length > max ? `${s.slice(0, max)}…` : s;
 }
 
 const STATUS = {
@@ -70,6 +81,7 @@ const STATUS = {
   RECHAZADA: "rechazada",
   CANCELADA: "cancelada",
   COMPLETADA: "completada",
+  INCUMPLIDA: "incumplida",
 };
 
 const FILTERS = {
@@ -79,6 +91,7 @@ const FILTERS = {
   COMPLETADAS: "completadas",
   CANCELADAS: "canceladas",
   RECHAZADAS: "rechazadas",
+  INCUMPLIDAS: "incumplidas", // ✅ nuevo
 };
 
 const PENDIENTES_SET = new Set([STATUS.SOLICITADA, STATUS.COTIZADA, STATUS.ACEPTADA]);
@@ -86,6 +99,7 @@ const AGENDADAS_SET = new Set([STATUS.AGENDADA]);
 const COMPLETADAS_SET = new Set([STATUS.COMPLETADA]);
 const CANCELADAS_SET = new Set([STATUS.CANCELADA]);
 const RECHAZADAS_SET = new Set([STATUS.RECHAZADA]);
+const INCUMPLIDAS_SET = new Set([STATUS.INCUMPLIDA]); // ✅ nuevo
 
 function IconButton({ onClick, title, children, className = "", disabled = false }) {
   return (
@@ -121,16 +135,19 @@ function statusStyle(status) {
     rechazada: "bg-[#FFE6EA] text-[#9B1C1C] border border-[#FFC9D3]",
     cancelada: "bg-black/[0.05] text-black/70 border border-black/10",
     completada: "bg-[#E8FFF2] text-[#0F6B3D] border border-[#CFF4E3]",
+    incumplida: "bg-[#FFE6EA] text-[#9B1C1C] border border-[#FFC9D3]",
   };
   return map[s] || "bg-black/[0.05] text-black/70 border border-black/10";
 }
 
-
-
-
 function StatusBadge({ status }) {
   return (
-    <span className={["inline-flex items-center rounded-full px-3 py-1 text-[12px] font-semibold capitalize", statusStyle(status)].join(" ")}>
+    <span
+      className={[
+        "inline-flex items-center rounded-full px-3 py-1 text-[12px] font-semibold capitalize",
+        statusStyle(status),
+      ].join(" ")}
+    >
       {status || "—"}
     </span>
   );
@@ -149,7 +166,12 @@ function FilterChip({ active, label, count, onClick }) {
       ].join(" ")}
     >
       <span>{label}</span>
-      <span className={["rounded-full px-2 py-[2px] text-[12px]", active ? "bg-white/20 text-white" : "bg-black/[0.04] text-black/50"].join(" ")}>
+      <span
+        className={[
+          "rounded-full px-2 py-[2px] text-[12px]",
+          active ? "bg-white/20 text-white" : "bg-black/[0.04] text-black/50",
+        ].join(" ")}
+      >
         {count}
       </span>
     </button>
@@ -186,16 +208,14 @@ function RequestPillSkeleton() {
 
 function EmptyState({ title, desc }) {
   return (
-    <div className="w-full rounded-[22px] bg-white border border-black/10 shadow-[0_10px_22px_rgba(0,0,0,0.06)] p-5">
-      <div className="flex items-start gap-3">
-        <span className="h-11 w-11 rounded-full bg-black/[0.04] grid place-items-center shrink-0">
-          <IconifyIcon icon="mdi:inbox-outline" className="h-6 w-6 text-black/35" />
-        </span>
-
-        <div className="min-w-0">
-          <p className="text-[14px] font-extrabold text-[#3D3D3D]">{title}</p>
-          <p className="mt-1 text-[12px] text-black/45">{desc}</p>
+    <div className="w-full pt-40 pb-10">
+      <div className="mx-auto w-full max-w-[320px] text-center">
+        <div className="mx-auto h-16 w-16 rounded-2xl bg-black/[0.04] grid place-items-center">
+          <IconifyIcon icon="mdi:bell-outline" className="h-8 w-8 text-black/30" />
         </div>
+
+        <p className="mt-5 text-[16px] font-extrabold text-[#3D3D3D]">{title}</p>
+        <p className="mt-2 text-[14px] text-black/45 leading-relaxed">{desc}</p>
       </div>
     </div>
   );
@@ -205,7 +225,12 @@ function Sheet({ open, onClose, children }) {
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-[9999]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+        <motion.div
+          className="fixed inset-0 z-[9999]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
           <button type="button" className="absolute inset-0 bg-black/40" onClick={onClose} aria-label="Cerrar" />
 
           <motion.div
@@ -216,7 +241,9 @@ function Sheet({ open, onClose, children }) {
             transition={{ type: "spring", stiffness: 380, damping: 34 }}
           >
             <div className="mx-auto w-full max-w-[520px] px-4 pb-6">
-              <div className="rounded-[28px] bg-white shadow-2xl overflow-hidden border border-black/10">{children}</div>
+              <div className="rounded-[28px] bg-white shadow-2xl overflow-hidden border border-black/10">
+                {children}
+              </div>
             </div>
           </motion.div>
         </motion.div>
@@ -334,17 +361,31 @@ function ConfirmDeleteSheet({ open, title, desc, onClose, onConfirm, busy }) {
   );
 }
 
+
 export default function Requests() {
   const nav = useNavigate();
   const { user } = useAuth();
   const toast = useToast();
 
+  const location = useLocation();
+
+  // si venís desde notificaciones: nav("/client/requests", { state: { focusRequestId } })
+  const focusIdFromNav = location?.state?.focusRequestId || null;
+
+  // refs para scrollear a la card específica
+  const itemRefs = useRef({});
+
+  // id que se resalta visualmente unos segundos
+  const [focusedId, setFocusedId] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
   const [err, setErr] = useState("");
+  const [psActiveByKey, setPsActiveByKey] = useState({});
 
   const [filter, setFilter] = useState(FILTERS.TODAS);
   const [busyId, setBusyId] = useState(null);
+  const [didAutoPickInc, setDidAutoPickInc] = useState(false); 
 
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReq, setCancelReq] = useState(null);
@@ -352,6 +393,12 @@ export default function Requests() {
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteReq, setDeleteReq] = useState(null);
+
+  function isOrphanRequest(r) {
+    // Si el prestador eliminó la oferta (provider_services) el enrich no puede traer provider_service/catalog
+    // y te queda la solicitud "colgada".
+    return !r?.provider_service && !r?.catalog;
+  }
 
   async function refresh({ silent = false } = {}) {
     if (!user?.id) return [];
@@ -378,13 +425,54 @@ export default function Requests() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+
+  useEffect(() => {
+    // armamos un lookup en batch: (provider_id + catalog_id) -> is_active
+    const run = async () => {
+      try {
+        const providerIds = Array.from(new Set((items || []).map(r => r?.provider_id).filter(Boolean)));
+        const catalogIds = Array.from(
+          new Set((items || []).map(r => r?.catalog_id ?? r?.service_id ?? null).filter(Boolean))
+        );
+
+        if (!providerIds.length || !catalogIds.length) {
+          setPsActiveByKey({});
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("provider_services")
+          .select("provider_id, catalog_id, is_active")
+          .in("provider_id", providerIds)
+          .in("catalog_id", catalogIds);
+
+        if (error) throw error;
+
+        const map = {};
+        for (const row of data || []) {
+          const key = `${row.provider_id}:${row.catalog_id}`;
+          map[key] = row.is_active;
+        }
+        setPsActiveByKey(map);
+      } catch {
+        // si falla, no rompemos nada
+        setPsActiveByKey({});
+      }
+    };
+
+    run();
+  }, [items]);
+
+
   useEffect(() => {
     if (!user?.id) return;
 
     const ch = supabase
       .channel(`client-requests-${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "service_requests", filter: `client_id=eq.${user.id}` }, () =>
-        refresh({ silent: true })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "service_requests", filter: `client_id=eq.${user.id}` },
+        () => refresh({ silent: true })
       )
       .subscribe();
 
@@ -392,26 +480,102 @@ export default function Requests() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  // ✅ Si hay incumplidas, el usuario cae directo al chip "Incumplidas"
+  useEffect(() => {
+    // ✅ SOLO 1 vez al entrar
+    if (didAutoPickInc) return;
+
+    const hasInc = (items || []).some((r) => norm(r?.status) === STATUS.INCUMPLIDA);
+    if (hasInc) setFilter(FILTERS.INCUMPLIDAS);
+
+    setDidAutoPickInc(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, didAutoPickInc]);
+
+
+
+
+  // ✅ Focus desde notificaciones: cambia chip, scrollea y resalta
+  useEffect(() => {
+    if (!focusIdFromNav) return;
+    if (!items || items.length === 0) return;
+
+    const target = items.find((x) => x?.id === focusIdFromNav);
+    if (!target) return;
+
+    const s = norm(target?.status);
+
+    // elegimos el filtro donde cae esa solicitud
+    const desiredFilter =
+      s === STATUS.INCUMPLIDA ? FILTERS.INCUMPLIDAS :
+      s === STATUS.AGENDADA ? FILTERS.AGENDADAS :
+      s === STATUS.CANCELADA ? FILTERS.CANCELADAS :
+      s === STATUS.RECHAZADA ? FILTERS.RECHAZADAS :
+      s === STATUS.COMPLETADA ? FILTERS.COMPLETADAS :
+      FILTERS.PENDIENTES;
+
+    if (filter !== desiredFilter) setFilter(desiredFilter);
+
+    // resaltar
+    setFocusedId(focusIdFromNav);
+
+    // esperar un toque para que el render aplique el filtro y exista el elemento
+    const t = setTimeout(() => {
+      const el = itemRefs.current[focusIdFromNav];
+      if (el?.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
+
+    // sacar el highlight después
+    const t2 = setTimeout(() => setFocusedId(null), 2500);
+
+    return () => {
+      clearTimeout(t);
+      clearTimeout(t2);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusIdFromNav, items, filter]);
+
+
+
   const counts = useMemo(() => {
-    const all = items.length;
-    const pending = items.filter((r) => PENDIENTES_SET.has(norm(r.status))).length;
-    const scheduled = items.filter((r) => AGENDADAS_SET.has(norm(r.status))).length;
-    const completed = items.filter((r) => COMPLETADAS_SET.has(norm(r.status))).length;
-    const cancelled = items.filter((r) => CANCELADAS_SET.has(norm(r.status))).length;
-    const rejected = items.filter((r) => RECHAZADAS_SET.has(norm(r.status))).length;
-    return { all, pending, scheduled, completed, cancelled, rejected };
+    const st = (r) => norm(r?.status);
+
+    const pending = items.filter((r) => PENDIENTES_SET.has(st(r))).length;
+    const scheduled = items.filter((r) => AGENDADAS_SET.has(st(r))).length;
+    const completed = items.filter((r) => COMPLETADAS_SET.has(st(r))).length;
+    const cancelled = items.filter((r) => CANCELADAS_SET.has(st(r))).length;
+    const rejected = items.filter((r) => RECHAZADAS_SET.has(st(r))).length;
+    const incumplidas = items.filter((r) => INCUMPLIDAS_SET.has(st(r))).length;
+
+    // ✅ "Todas" NO debe incluir incumplidas ni completadas
+    const all = items.filter((r) => {
+      const s = st(r);
+      return s !== STATUS.COMPLETADA && s !== STATUS.INCUMPLIDA;
+    }).length;
+
+    return { all, pending, scheduled, completed, cancelled, rejected, incumplidas };
   }, [items]);
 
   const filteredItems = useMemo(() => {
     const st = (r) => norm(r.status);
     let arr = [...items];
 
+    // ✅ TODAS: sin completadas ni incumplidas
+    if (filter === FILTERS.TODAS) {
+      arr = arr.filter((r) => {
+        const s = st(r);
+        return s !== STATUS.COMPLETADA && s !== STATUS.INCUMPLIDA;
+      });
+    }
+
     if (filter === FILTERS.PENDIENTES) arr = arr.filter((r) => PENDIENTES_SET.has(st(r)));
     if (filter === FILTERS.AGENDADAS) arr = arr.filter((r) => AGENDADAS_SET.has(st(r)));
     if (filter === FILTERS.COMPLETADAS) arr = arr.filter((r) => COMPLETADAS_SET.has(st(r)));
     if (filter === FILTERS.CANCELADAS) arr = arr.filter((r) => CANCELADAS_SET.has(st(r)));
     if (filter === FILTERS.RECHAZADAS) arr = arr.filter((r) => RECHAZADAS_SET.has(st(r)));
+    if (filter === FILTERS.INCUMPLIDAS) arr = arr.filter((r) => INCUMPLIDAS_SET.has(st(r)));
 
+    // Sort
     if (filter === FILTERS.AGENDADAS) {
       arr.sort((a, b) => {
         const ta = safeTS(a?.preferred_datetime);
@@ -430,21 +594,68 @@ export default function Requests() {
   }, [items, filter]);
 
   const emptyCopy = useMemo(() => {
-    if (filter === FILTERS.PENDIENTES) return { title: "No tenés pendientes", desc: "Cuando hagas una nueva solicitud, aparece acá." };
-    if (filter === FILTERS.AGENDADAS) return { title: "No tenés agendadas", desc: "Cuando el prestador confirme, aparece acá." };
-    if (filter === FILTERS.COMPLETADAS) return { title: "No hay completadas", desc: "Te quedan como historial." };
-    if (filter === FILTERS.CANCELADAS) return { title: "No hay canceladas", desc: "Si cancelás un turno, queda acá." };
+    if (filter === FILTERS.PENDIENTES) return { title: "No tenés pendientes", desc: "Cuando hagas una nueva solicitud, te va a aparecer acá." };
+    if (filter === FILTERS.AGENDADAS) return { title: "No tenés agendadas", desc: "Cuando el prestador confirme, te va a aparecer acá." };
+    if (filter === FILTERS.COMPLETADAS) return { title: "No hay completadas", desc: "Te quedan como historial y también podés verlas en Historial." };
+    if (filter === FILTERS.CANCELADAS) return { title: "No hay canceladas", desc: "Si cancelás un turno, va a quedar acá." };
     if (filter === FILTERS.RECHAZADAS) return { title: "No hay rechazadas", desc: "Si rechazás, queda acá para que puedas eliminarla." };
+    if (filter === FILTERS.INCUMPLIDAS) return { title: "No hay incumplidas", desc: "Si una solicitud se marca como incumplida, te va a aparecer acá." };
     return { title: "Todavía no hiciste solicitudes", desc: "Cuando pidas un servicio, lo vas a ver acá." };
   }, [filter]);
 
+  // ✅ Cancelar:
+  // - normal: solo si agendada y todavía no empezó
+  // - ORPHAN: si quedó colgada por servicio eliminado, la dejamos cancelar igual (para destrabar)
   function canCancel(req) {
-    return norm(req?.status) === STATUS.AGENDADA;
+    if (norm(req?.status) !== STATUS.AGENDADA) return false;
+
+    if (isOrphanRequest(req)) return true;
+
+    const ts = safeTS(req?.preferred_datetime);
+    if (!Number.isFinite(ts)) return true;
+    return Date.now() < ts;
   }
-  function canDelete(req) {
-    const s = norm(req?.status);
-    return s === STATUS.CANCELADA || s === STATUS.RECHAZADA;
+
+  function isInactiveFlag(v) {
+    // soporta boolean, 0/1, string "false"/"0"
+    if (v === false) return true;
+    if (v === 0) return true;
+    if (typeof v === "string") {
+      const s = v.trim().toLowerCase();
+      if (s === "false" || s === "0" || s === "inactive" || s === "off") return true;
+    }
+    return false;
   }
+
+  function isDepublishedRequest(r) {
+    // 1) si ya vino provider_service, usamos eso
+    if (isInactiveFlag(r?.provider_service?.is_active)) return true;
+
+    // 2) lookup por (provider_id + catalog_id/service_id)
+    const catalogId = r?.catalog_id ?? r?.service_id ?? null;
+    const key = r?.provider_id && catalogId ? `${r.provider_id}:${catalogId}` : null;
+    if (key && isInactiveFlag(psActiveByKey[key])) return true;
+
+    // 3) si el catálogo está inactivo (por las dudas)
+    if (isInactiveFlag(r?.catalog?.is_active)) return true;
+
+    return false;
+  }
+
+
+  // ✅ Eliminar:
+  // - cancelada / rechazada 
+  // - ORPHAN: permitir eliminar aunque esté agendada (para destrabar “quedó agendada y no puedo hacer nada”)
+function canDelete(req) {
+  const s = norm(req?.status);
+  // ✅ solo cancelada o rechazada 
+  if (s === STATUS.CANCELADA || s === STATUS.RECHAZADA) return true;
+
+  // ✅ orphan: permitir eliminar para destrabar, pero NO si es incumplida
+  if (isOrphanRequest(req) && s !== STATUS.COMPLETADA && s !== STATUS.INCUMPLIDA) return true;
+
+  return false;
+}
 
   function openCancel(req) {
     setCancelReq(req);
@@ -465,10 +676,10 @@ export default function Requests() {
       await updateRequestSafe(cancelReq.id, { status: STATUS.CANCELADA });
       const reason = String(cancelReason || "").trim() || "Cancelado por el cliente";
 
-      await cancelAppointmentByRequestId(cancelReq.id, {
-        cancelled_by: "client",
-        cancelled_reason: reason,
-      });
+      // Si no existe appointment o falla, no rompemos el flujo (así destraba el caso orphan)
+      try {
+        await cancelAppointmentByRequestId(cancelReq.id, { cancelled_by: "client", cancelled_reason: reason });
+      } catch {}
 
       toast.success("Turno cancelado", "Se liberó el horario.");
       setCancelOpen(false);
@@ -491,13 +702,23 @@ export default function Requests() {
 
     try {
       setBusyId(id);
+
+      // optimista
       setItems((prev) => prev.filter((x) => x.id !== id));
+
       await deleteRequest(id);
 
-      toast.success("Eliminada", "Ya no aparece en tu lista.");
-      setDeleteOpen(false);
-      setDeleteReq(null);
-      refresh({ silent: true });
+      // ✅ aseguramos que desaparezca
+      const after = await refresh({ silent: true });
+      const stillThere = (after || []).some((x) => x.id === id);
+
+      if (stillThere) {
+        toast.error("No se pudo eliminar", "Parece un tema de permisos (RLS).");
+      } else {
+        toast.success("Eliminada", "Ya no aparece en tu lista.");
+        setDeleteOpen(false);
+        setDeleteReq(null);
+      }
     } catch (e) {
       const after = await refresh({ silent: true });
       const stillThere = (after || []).some((x) => x.id === id);
@@ -520,7 +741,6 @@ export default function Requests() {
       setBusyId(req.id);
       await updateRequestSafe(req.id, { status: STATUS.ACEPTADA });
 
-      // ✅ NOTI al PRESTADOR: cotización aceptada
       try {
         const serviceName = req?.catalog?.name || req?.provider_service?.service_catalog?.name || "un servicio";
         await safeCreateNotification({
@@ -550,7 +770,6 @@ export default function Requests() {
       setBusyId(req.id);
       await updateRequestSafe(req.id, { status: STATUS.RECHAZADA });
 
-      // ✅ NOTI al PRESTADOR: cotización rechazada
       try {
         const serviceName = req?.catalog?.name || req?.provider_service?.service_catalog?.name || "un servicio";
         await safeCreateNotification({
@@ -575,10 +794,18 @@ export default function Requests() {
   }
 
   const deleteName = useMemo(() => {
-    return deleteReq?.catalog?.name || deleteReq?.provider_service?.service_catalog?.name || "esta solicitud";
+    return deleteReq?.service_name_snapshot || deleteReq?.catalog?.name || deleteReq?.provider_service?.service_catalog?.name || "esta solicitud";
   }, [deleteReq]);
 
   const goDetail = (id) => nav(`/client/requests/${id}`);
+
+  function setItemRef(id) {
+      return (el) => {
+        if (!id) return;
+        if (el) itemRefs.current[id] = el;
+        else delete itemRefs.current[id];
+      };
+    }
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
@@ -594,8 +821,6 @@ export default function Requests() {
             <IconButton onClick={() => refresh()} title="Actualizar">
               <IconifyIcon icon="mdi:refresh" className="h-6 w-6 text-black/40" />
             </IconButton>
-
-            {/* ✅ (ELIMINADO) Botón de Notificaciones */}
           </div>
         </div>
 
@@ -607,12 +832,48 @@ export default function Requests() {
           `}</style>
 
           <div className="flex gap-3 w-max">
-            <FilterChip active={filter === FILTERS.TODAS} label="Todas" count={counts.all} onClick={() => setFilter(FILTERS.TODAS)} />
-            <FilterChip active={filter === FILTERS.PENDIENTES} label="Pendientes" count={counts.pending} onClick={() => setFilter(FILTERS.PENDIENTES)} />
-            <FilterChip active={filter === FILTERS.AGENDADAS} label="Agendadas" count={counts.scheduled} onClick={() => setFilter(FILTERS.AGENDADAS)} />
-            <FilterChip active={filter === FILTERS.COMPLETADAS} label="Completadas" count={counts.completed} onClick={() => setFilter(FILTERS.COMPLETADAS)} />
-            <FilterChip active={filter === FILTERS.CANCELADAS} label="Canceladas" count={counts.cancelled} onClick={() => setFilter(FILTERS.CANCELADAS)} />
-            <FilterChip active={filter === FILTERS.RECHAZADAS} label="Rechazadas" count={counts.rejected} onClick={() => setFilter(FILTERS.RECHAZADAS)} />
+            <FilterChip
+              active={filter === FILTERS.TODAS}
+              label="Todas"
+              count={counts.all}
+              onClick={() => setFilter(FILTERS.TODAS)}
+            />
+            <FilterChip
+              active={filter === FILTERS.PENDIENTES}
+              label="Pendientes"
+              count={counts.pending}
+              onClick={() => setFilter(FILTERS.PENDIENTES)}
+            />
+            <FilterChip
+              active={filter === FILTERS.AGENDADAS}
+              label="Agendadas"
+              count={counts.scheduled}
+              onClick={() => setFilter(FILTERS.AGENDADAS)}
+            />
+            <FilterChip
+              active={filter === FILTERS.INCUMPLIDAS}
+              label="Incumplidas"
+              count={counts.incumplidas}
+              onClick={() => setFilter(FILTERS.INCUMPLIDAS)}
+            />
+            <FilterChip
+              active={filter === FILTERS.COMPLETADAS}
+              label="Completadas"
+              count={counts.completed}
+              onClick={() => setFilter(FILTERS.COMPLETADAS)}
+            />
+            <FilterChip
+              active={filter === FILTERS.CANCELADAS}
+              label="Canceladas"
+              count={counts.cancelled}
+              onClick={() => setFilter(FILTERS.CANCELADAS)}
+            />
+            <FilterChip
+              active={filter === FILTERS.RECHAZADAS}
+              label="Rechazadas"
+              count={counts.rejected}
+              onClick={() => setFilter(FILTERS.RECHAZADAS)}
+            />
           </div>
         </div>
 
@@ -627,172 +888,225 @@ export default function Requests() {
           {!loading &&
             !err &&
             filteredItems.map((r) => {
-              const name = r?.catalog?.name || r?.provider_service?.service_catalog?.name || "Servicio";
-              const providerName = r?.provider?.full_name || "Prestador";
-              const providerVerified = !!r?.provider?.provider_verified;
+              const name =
+                r?.service_name_snapshot ||
+                r?.catalog?.name ||
+                r?.provider_service?.service_catalog?.name ||
+                "Servicio";
+
+              const providerName =
+                r?.provider_name_snapshot ||
+                r?.provider?.full_name ||
+                "Prestador";
+
+              const hasCertification = !!r?.provider?.certificate_url || !!r?.provider?.cert_url;
+              const providerVerified = !!r?.provider?.provider_verified && hasCertification;
 
               const turno = formatTurno(r.preferred_datetime);
               const isBusy = busyId === r.id;
 
-              const { pricingType, base } = computeAmountsForCard(r);
-              const isQuote = String(pricingType || "").toUpperCase() === "B";
+              const orphan = isOrphanRequest(r);
+              const depublished = isDepublishedRequest(r);
 
-              const priceText = isQuote
-                ? base != null
-                  ? `Cotización: ${moneyARS(base)}`
-                  : "Cotización: pendiente"
-                : base != null
-                ? `Precio: ${moneyARS(base)}`
-                : "Precio: —";
+              // ✅ NUEVO: el prestador borró su publicación (provider_services),
+              // pero el catálogo existe por fallback => hay que mostrar banner igual
+              const offerMissing = !r?.provider_service && !!r?.catalog;
 
-              const showQuoteDecision = isQuote && base != null && norm(r.status) === STATUS.COTIZADA;
+              // ✅ bandera final para banner + forzar cancelada visual
+              const shouldMarkAsCancelled = (orphan || depublished || offerMissing);
+
+
+            const { pricingType, base } = computeAmountsForCard(r);
+            const isQuote = String(pricingType || "").toUpperCase() === "B";
+
+            const showQuoteDecision =
+              !orphan && isQuote && base != null && norm(r.status) === STATUS.COTIZADA;
+
+              // ✅ Si quedó orphan y no está completada ni incumplida,
+              // la mostramos como cancelada
+              const displayStatus =
+              shouldMarkAsCancelled &&
+              norm(r.status) !== STATUS.COMPLETADA &&
+              norm(r.status) !== STATUS.INCUMPLIDA
+                ? STATUS.CANCELADA
+                : r.status;
+
+
 
               return (
-                <div
-                  key={r.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => goDetail(r.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") goDetail(r.id);
-                  }}
-                  className="w-full rounded-[22px] bg-white border border-black/10 shadow-[0_10px_22px_rgba(0,0,0,0.06)] px-4 py-4 cursor-pointer select-none"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[15px] font-extrabold text-[#3D3D3D] leading-snug line-clamp-2">{name}</p>
+              <div
+                key={r.id}
+                ref={setItemRef(r.id)}
+                role="button"
+                tabIndex={0}
+                onClick={() => goDetail(r.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") goDetail(r.id);
+                }}
+                className={[
+                  "w-full rounded-[22px] bg-white border border-black/10 shadow-[0_10px_22px_rgba(0,0,0,0.06)] px-4 py-4 cursor-pointer select-none",
+                  (orphan || depublished) ? "opacity-[0.92]" : "",
+                  focusedId === r.id
+                    ? "ring-2 ring-[#A0B8E1] shadow-[0_14px_34px_rgba(160,184,225,0.28)]"
+                    : "",
+                ].join(" ")}
+              >
+                {/* Header (izq: título + prestador) (der: estado + acciones) */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-extrabold text-[#3D3D3D] leading-snug line-clamp-2">
+                      {name}
+                    </p>
 
-                      <div className="mt-2 flex items-center gap-[2px] min-w-0">
-                        <p className="text-[12px] text-black/55 truncate">{providerName}</p>
-                        <VerifiedIcon show={providerVerified} />
-                      </div>
-                    </div>
-
-                    <div className="shrink-0 flex items-center gap-2">
-                      <StatusBadge status={r.status} />
-
-                      {canCancel(r) && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openCancel(r);
-                          }}
-                          disabled={isBusy}
-                          className={[
-                            "h-9 w-9 rounded-full bg-white border border-black/10 shadow-[0_4px_12px_rgba(0,0,0,0.06)] grid place-items-center active:scale-[0.98] transition",
-                            isBusy ? "opacity-60 cursor-not-allowed active:scale-100" : "hover:bg-black/[0.02]",
-                          ].join(" ")}
-                          aria-label="Cancelar"
-                          title="Cancelar"
-                        >
-                          <IconifyIcon icon="mdi:calendar-remove-outline" className="h-5 w-5 text-black/45" />
-                        </button>
-                      )}
-
-                      {canDelete(r) && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openDelete(r);
-                          }}
-                          disabled={isBusy}
-                          className={[
-                            "h-9 w-9 rounded-full bg-white border border-black/10 shadow-[0_4px_12px_rgba(0,0,0,0.06)] grid place-items-center active:scale-[0.98] transition",
-                            isBusy ? "opacity-60 cursor-not-allowed active:scale-100" : "hover:bg-black/[0.02]",
-                          ].join(" ")}
-                          aria-label="Eliminar"
-                          title="Eliminar"
-                        >
-                          <IconifyIcon icon="mdi:trash-can-outline" className="h-5 w-5 text-black/45" />
-                        </button>
-                      )}
+                    <div className="mt-2 flex items-center gap-[2px] min-w-0">
+                      <p className="text-[12px] text-black/55 truncate">{providerName}</p>
+                      <VerifiedIcon show={providerVerified} />
                     </div>
                   </div>
 
+                  <div className="shrink-0 flex items-center gap-2">
+                    <StatusBadge status={displayStatus} />
 
-                  {/* ✅ Fila fija (2 columnas) para que NUNCA se desalineen */}
-                  <div className="mt-4 grid grid-cols-2 items-center gap-3">
-                    {/* Fecha (izquierda) */}
-                  <span
-                  className="
-                    inline-flex items-center rounded-full
-                    px-2 py-2 text-[12px] font-extrabold
-                    bg-black/[0.04] text-black/60
-                    w-full min-w-0
-                  "
-                  >
-                    {/* Columna fija para el ícono (evita “margen raro” a la derecha) */}
+                    {canCancel(r) && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openCancel(r);
+                        }}
+                        disabled={isBusy}
+                        className={[
+                          "h-9 w-9 rounded-full bg-white border border-black/10 shadow-[0_4px_12px_rgba(0,0,0,0.06)] grid place-items-center active:scale-[0.98] transition",
+                          isBusy
+                            ? "opacity-60 cursor-not-allowed active:scale-100"
+                            : "hover:bg-black/[0.02]",
+                        ].join(" ")}
+                        aria-label="Cancelar"
+                        title="Cancelar"
+                      >
+                        <IconifyIcon
+                          icon="mdi:calendar-remove-outline"
+                          className="h-5 w-5 text-black/45"
+                        />
+                      </button>
+                    )}
+
+                    {canDelete(r) && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDelete(r);
+                        }}
+                        disabled={isBusy}
+                        className={[
+                          "h-9 w-9 rounded-full bg-white border border-black/10 shadow-[0_4px_12px_rgba(0,0,0,0.06)] grid place-items-center active:scale-[0.98] transition",
+                          isBusy
+                            ? "opacity-60 cursor-not-allowed active:scale-100"
+                            : "hover:bg-black/[0.02]",
+                        ].join(" ")}
+                        aria-label="Eliminar"
+                        title="Eliminar"
+                      >
+                        <IconifyIcon
+                          icon="mdi:trash-can-outline"
+                          className="h-5 w-5 text-black/45"
+                        />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* ✅ Banner FULL WIDTH (mejor mobile) */}
+                {shouldMarkAsCancelled && (
+                <div className="mt-3 flex items-start gap-2 rounded-[14px] bg-black/[0.03] px-3 py-2">
+                  <span className="mt-[2px] h-6 w-6 rounded-full bg-white border border-black/10 grid place-items-center shrink-0">
+                    <IconifyIcon icon="mdi:information-outline" className="h-4.5 w-4.5 text-black/45" />
+                  </span>
+
+                  <p className="text-[12px] text-black/60 leading-snug">
+                    <span className="font-extrabold text-black/70">Servicio despublicado.</span>{" "}
+                    Esta solicitud quedó <span className="font-semibold">cancelada</span>.
+                    {canDelete(r) ? (
+                      <>
+                        {" "}
+                        <span className="text-black/50">Podés eliminarla.</span>
+                      </>
+                    ) : null}
+                  </p>
+                </div>
+              )}
+
+                {/* Footer info */}
+                <div className="mt-4 grid grid-cols-2 items-center gap-3">
+                  <span className="inline-flex items-center rounded-full px-2 py-2 text-[12px] font-extrabold bg-black/[0.04] text-black/60 w-full min-w-0">
                     <span className="w-6 grid place-items-center shrink-0">
                       <IconifyIcon
                         icon="mdi:calendar-blank-outline"
                         className="h-4 w-4 text-black/40"
                       />
                     </span>
-
-                    {/* Texto */}
                     <span className="whitespace-nowrap">
                       {turno.date}
                       {turno.time ? ` · ${turno.time}` : ""}
                     </span>
                   </span>
 
-                    {/* Precio (derecha) - sin fondo, pero “armado” en 2 líneas prolijas */}
-                    <div className="justify-self-end text-right">
-                      <p className="text-[11px] font-medium text-black/45 leading-none">
-                        {isQuote ? "Cotización" : "Precio"}
-                      </p>
-                      <p className="mt-2 text-[15px] font-extrabold text-[#3D3D3D] leading-none">
-                        {base != null ? moneyARS(base) : "—"}
-                      </p>
-                    </div>
+                  <div className="justify-self-end text-right">
+                    <p className="text-[11px] font-medium text-black/45 leading-none">
+                      {isQuote ? "Cotización" : "Precio"}
+                    </p>
+                    <p className="mt-2 text-[15px] font-extrabold text-[#3D3D3D] leading-none">
+                      {base != null ? moneyARS(base) : "—"}
+                    </p>
                   </div>
-
-
-
-
-                  {showQuoteDecision && (
-                    <div className="mt-3 grid grid-cols-2 gap-2 w-full">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!isBusy) acceptQuote(r);
-                        }}
-                        disabled={isBusy}
-                        className={[
-                          "w-full h-11 rounded-full bg-[#1E2F5D] text-white text-[12px] font-extrabold shadow-[0_10px_22px_rgba(30,47,93,0.18)] active:scale-[0.98] transition inline-flex items-center justify-center gap-2",
-                          isBusy ? "opacity-60 cursor-not-allowed active:scale-100" : "hover:brightness-[1.02]",
-                        ].join(" ")}
-                        title="Aceptar cotización"
-                        aria-label="Aceptar cotización"
-                      >
-                        <IconifyIcon icon="mdi:check" className="h-4.5 w-4.5 text-white/90" />
-                        Aceptar
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!isBusy) rejectQuote(r);
-                        }}
-                        disabled={isBusy}
-                        className={[
-                          "w-full h-11 rounded-full border border-black/10 bg-[#FFECEE] text-[12px] font-extrabold active:scale-[0.98] transition inline-flex items-center justify-center gap-2",
-                          isBusy ? "opacity-60 cursor-not-allowed active:scale-100" : "hover:bg-[#FFE4E7]",
-                        ].join(" ")}
-                        title="Rechazar cotización"
-                        aria-label="Rechazar cotización"
-                      >
-                        <IconifyIcon icon="mdi:close" className="h-4.5 w-4.5 text-[#9B1C1C]" />
-                        <span className="text-[#9B1C1C]">Rechazar</span>
-                      </button>
-                    </div>
-                  )}
                 </div>
-              );
+
+                {showQuoteDecision && (
+                  <div className="mt-3 grid grid-cols-2 gap-2 w-full">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isBusy) acceptQuote(r);
+                      }}
+                      disabled={isBusy}
+                      className={[
+                        "w-full h-11 rounded-full bg-[#1E2F5D] text-white text-[12px] font-extrabold shadow-[0_10px_22px_rgba(30,47,93,0.18)] active:scale-[0.98] transition inline-flex items-center justify-center gap-2",
+                        isBusy
+                          ? "opacity-60 cursor-not-allowed active:scale-100"
+                          : "hover:brightness-[1.02]",
+                      ].join(" ")}
+                      title="Aceptar cotización"
+                      aria-label="Aceptar cotización"
+                    >
+                      <IconifyIcon icon="mdi:check" className="h-4.5 w-4.5 text-white/90" />
+                      Aceptar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isBusy) rejectQuote(r);
+                      }}
+                      disabled={isBusy}
+                      className={[
+                        "w-full h-11 rounded-full border border-black/10 bg-[#FFECEE] text-[12px] font-extrabold active:scale-[0.98] transition inline-flex items-center justify-center gap-2",
+                        isBusy
+                          ? "opacity-60 cursor-not-allowed active:scale-100"
+                          : "hover:bg-[#FFE4E7]",
+                      ].join(" ")}
+                      title="Rechazar cotización"
+                      aria-label="Rechazar cotización"
+                    >
+                      <IconifyIcon icon="mdi:close" className="h-4.5 w-4.5 text-[#9B1C1C]" />
+                      <span className="text-[#9B1C1C]">Rechazar</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
             })}
         </div>
       </div>
@@ -806,7 +1120,12 @@ export default function Requests() {
         }}
         onConfirm={confirmCancel}
         busy={busyId === cancelReq?.id}
-        serviceName={cancelReq?.catalog?.name || cancelReq?.provider_service?.service_catalog?.name || "este servicio"}
+        serviceName={
+          cancelReq?.service_name_snapshot ||
+          cancelReq?.catalog?.name ||
+          cancelReq?.provider_service?.service_catalog?.name ||
+          "este servicio"
+        }
         reason={cancelReason}
         setReason={setCancelReason}
       />

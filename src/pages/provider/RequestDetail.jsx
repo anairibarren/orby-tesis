@@ -5,7 +5,17 @@ import { Icon as IconifyIcon } from "@iconify/react";
 
 import { useAuth } from "../../hooks/useAuth";
 import { useToast } from "../../components/Toast";
-import { getRequestById, getProviderServiceById, getProfileById, completeWithCode } from "../../services/requests";
+import Loading from "../../components/Loading";
+import RequestChat from "../../components/RequestChat.jsx";
+
+import {
+  getRequestById,
+  getProviderServiceById,
+  getProfileById,
+  completeWithCode,
+} from "../../services/requests";
+
+import { supabase } from "../../services/supabase"; 
 
 function CardShell({ children, className = "" }) {
   return (
@@ -31,6 +41,7 @@ function statusStyle(status) {
     rechazada: "bg-[#FFE6EA] text-[#9B1C1C]",
     cancelada: "bg-black/[0.06] text-black/70",
     completada: "bg-[#E8FFF2] text-[#0F6B3D]",
+    incumplida: "bg-[#FFE6EA] text-[#9B1C1C]",
   };
   return map[s] || "bg-black/[0.06] text-black/70";
 }
@@ -50,12 +61,21 @@ function StatusBadge({ status }) {
 function formatDateOnly(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
-  return d.toLocaleDateString("es-AR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
+  return d.toLocaleDateString("es-AR", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 function formatTimeOnly(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
-  return d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return d.toLocaleTimeString("es-AR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 }
 
 function paymentLabel(method) {
@@ -67,25 +87,59 @@ function paymentLabel(method) {
   return "—";
 }
 
-/** ✅ payment_status en español */
-function paymentStatusLabel(v) {
-  const s = String(v || "").toLowerCase().trim();
-  const map = {
-    pending: "Pendiente",
-    in_process: "En proceso",
-    inprocess: "En proceso",
-    authorized: "Autorizado",
-    approved: "Aprobado",
-    paid: "Pagado",
-    rejected: "Rechazado",
-    cancelled: "Cancelado",
-    canceled: "Cancelado",
-    refunded: "Reintegrado",
-    chargeback: "Contracargo",
-    in_mediation: "En mediación",
-    inmediation: "En mediación",
-  };
-  return map[s] || (s ? s.charAt(0).toUpperCase() + s.slice(1) : "—");
+// ✅ helpers robustos (cuando se borró provider_service o fallan joins)
+
+function getServiceNameFromAny(req, ps, catalog) {
+  return (
+    ps?.service_catalog?.name ||
+    catalog?.name ||
+    req?.catalog?.name ||
+    req?.provider_service?.service_catalog?.name ||
+    req?.provider_service?.name ||
+    req?.service_catalog?.name ||
+    req?.service_name ||
+    req?.service_title ||
+    "Servicio"
+  );
+}
+
+function getCategoryFromAny(req, ps, catalog) {
+  return (
+    ps?.service_catalog?.category ||
+    catalog?.category ||
+    req?.catalog?.category ||
+    req?.provider_service?.service_catalog?.category ||
+    req?.service_catalog?.category ||
+    req?.category ||
+    ""
+  );
+}
+
+function getPricingTypeFromAny(req, ps, catalog) {
+  return (
+    ps?.service_catalog?.pricing_type ||
+    catalog?.pricing_type ||
+    req?.catalog?.pricing_type ||
+    req?.provider_service?.service_catalog?.pricing_type ||
+    req?.service_catalog?.pricing_type ||
+    req?.pricing_type ||
+    null
+  );
+}
+
+// precio fijo “snapshot” (si existe) + base_price de provider_service
+function getFixedPriceFromAny(req, ps) {
+  return (
+    req?.service_amount ??
+    req?.fixed_price ??
+    req?.catalog?.fixed_price ??
+    req?.catalog?.price ??
+    req?.catalog?.base_price ??
+    ps?.base_price ??
+    req?.provider_service?.base_price ??
+    req?.provider_service?.price ??
+    null
+  );
 }
 
 function moneyARS(n) {
@@ -107,7 +161,14 @@ function SectionTitle({ icon, title }) {
 
 /** ✅ barrio/dirección robustos */
 function getBarrio(req) {
-  const candidates = [req?.barrio, req?.neighborhood, req?.neighbourhood, req?.district, req?.zona, req?.area]
+  const candidates = [
+    req?.barrio,
+    req?.neighborhood,
+    req?.neighbourhood,
+    req?.district,
+    req?.zona,
+    req?.area,
+  ]
     .map((x) => String(x || "").trim())
     .filter(Boolean);
 
@@ -135,14 +196,48 @@ function getDireccion(req) {
 function cleanDescription(raw) {
   const t = String(raw || "").trim();
   if (!t) return "";
-  // si la app guardó algo como:
-  // "Mi problema...\n\n📍 Ubicación: Barrio: ... Dirección: ..."
   const cutByPin = t.split(/\n\s*📍/)[0]?.trim();
   if (cutByPin && cutByPin.length > 0) return cutByPin;
 
-  // fallback: si viene sin emoji pero con "Ubicación:" en otra línea
   const cutByUbi = t.split(/\n\s*ubicaci[oó]n\s*:/i)[0]?.trim();
   return cutByUbi && cutByUbi.length > 0 ? cutByUbi : t;
+}
+
+/* ---------------- Sheet base (simple) ---------------- */
+function Sheet({ open, onClose, title, children }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[9999]">
+      <button type="button" className="absolute inset-0 bg-black/40" onClick={onClose} aria-label="Cerrar" />
+
+      <div className="absolute left-0 right-0 bottom-0 px-4 pb-6">
+        <div className="mx-auto max-w-[520px] rounded-[28px] bg-white shadow-2xl overflow-hidden border border-black/10">
+          <div className="pt-3 flex justify-center">
+            <div className="h-1.5 w-14 rounded-full bg-black/10" />
+          </div>
+
+          <div className="px-6 pt-5 pb-4 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[18px] font-extrabold text-[#3D3D3D]">{title}</p>
+              <p className="mt-1 text-[12px] text-black/45">Elegí una opción.</p>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-11 w-11 rounded-full bg-black/[0.04] grid place-items-center"
+              aria-label="Cerrar"
+              title="Cerrar"
+            >
+              <IconifyIcon icon="mdi:close" className="h-6 w-6 text-black/40" />
+            </button>
+          </div>
+
+          <div className="px-6 pb-6">{children}</div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ProviderRequestDetail() {
@@ -153,14 +248,21 @@ export default function ProviderRequestDetail() {
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+
   const [req, setReq] = useState(null);
   const [ps, setPs] = useState(null);
   const [client, setClient] = useState(null);
+
+  // ✅ fallback para nombre/categoría/pricing cuando no hay provider_service o no hay joins
+  const [catalog, setCatalog] = useState(null);
 
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
 
   const [successOpen, setSuccessOpen] = useState(false);
+
+  // ✅ menú ⋯
+  const [menuOpen, setMenuOpen] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -174,14 +276,30 @@ export default function ProviderRequestDetail() {
 
       const providerServiceId = r?.provider_service_id ?? r?.service_id ?? null;
 
-      const [psData, clientData] = await Promise.all([
-        providerServiceId ? getProviderServiceById(providerServiceId).catch(() => null) : Promise.resolve(null),
+      const [psData, clientData, catalogData] = await Promise.all([
+        providerServiceId
+          ? getProviderServiceById(providerServiceId).catch(() => null)
+          : Promise.resolve(null),
+
         r?.client_id ? getProfileById(r.client_id).catch(() => null) : Promise.resolve(null),
+
+        // ✅ fallback: si el request tiene catalog_id, traemos el catalog directo
+        r?.catalog_id
+          ? supabase
+              .from("service_catalog")
+              .select("id, name, category, pricing_type")
+              .eq("id", r.catalog_id)
+              .maybeSingle()
+              .then(({ data }) => data)
+              .catch(() => null)
+          : Promise.resolve(null),
       ]);
 
       setReq(r);
       setPs(psData);
       setClient(clientData);
+      setCatalog(catalogData);
+
     } catch (e) {
       setErr(e?.message || "No se pudo cargar el detalle.");
     } finally {
@@ -194,24 +312,28 @@ export default function ProviderRequestDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestId, user?.id]);
 
-  const serviceName = ps?.service_catalog?.name || "Servicio";
-  const category = ps?.service_catalog?.category || "";
-  const pricingType = ps?.service_catalog?.pricing_type || null;
+  const serviceName = getServiceNameFromAny(req, ps, catalog);
+  const category = getCategoryFromAny(req, ps, catalog);
+  const pricingType = getPricingTypeFromAny(req, ps, catalog);
+
+  const serviceMissing = !!req && !ps;
+
   const clientName = client?.full_name || "Cliente";
 
   const paymentMethod = req?.payment_method ?? null;
 
   const amounts = useMemo(() => {
-    if (!req || !ps) return null;
+    if (!req) return null;
 
-    const base =
-      String(pricingType || "").toUpperCase() === "B"
-        ? req?.quote_amount != null
-          ? Number(req.quote_amount)
-          : null
-        : ps?.base_price != null
-        ? Number(ps.base_price)
-        : null;
+    const isQuote = String(pricingType || "").toUpperCase() === "B";
+
+    const base = isQuote
+      ? (req?.quote_amount != null ? Number(req.quote_amount) : null)
+      : (() => {
+          const fp = getFixedPriceFromAny(req, ps);
+          const n = fp != null ? Number(fp) : null;
+          return Number.isFinite(n) ? n : null;
+        })();
 
     const fee =
       req?.platform_fee != null
@@ -251,7 +373,7 @@ export default function ProviderRequestDetail() {
     }
   }
 
-  if (loading) return <div className="min-h-screen bg-[#F5F5F5] p-6">Cargando…</div>;
+  if (loading) return <Loading />;
 
   if (err) {
     return (
@@ -271,7 +393,7 @@ export default function ProviderRequestDetail() {
   return (
     <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
       <div className="px-6 pt-[46px] pb-10">
-        {/* Header igual client */}
+        {/* Header */}
         <div className="relative flex items-center justify-center">
           <button
             type="button"
@@ -283,32 +405,68 @@ export default function ProviderRequestDetail() {
             <span className="text-2xl leading-none">‹</span>
           </button>
 
+          {/* ⋯ */}
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            className="absolute right-0 h-11 w-11 rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.06)] grid place-items-center"
+            aria-label="Opciones"
+            title="Opciones"
+          >
+            <IconifyIcon icon="mdi:dots-horizontal" className="h-6 w-6 text-black/45" />
+          </button>
+
           <h1 className="text-[18px] font-extrabold text-[#3D3D3D]">Detalle de solicitud</h1>
         </div>
 
-        {/* 1) Servicio + Estado */}
-        <CardShell className="mt-5 p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[12px] font-semibold text-black/40">Servicio</p>
-              <p className="mt-1 text-[16px] font-extrabold text-[#3D3D3D] leading-snug break-words">{serviceName}</p>
-              {!!category && <p className="mt-1 text-[12px] text-black/50">{category}</p>}
-            </div>
+       {/* 1) Servicio + Estado */}
+      <CardShell className="mt-5 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[12px] font-semibold text-black/40">Servicio</p>
+            <p className="mt-1 text-[16px] font-extrabold text-[#3D3D3D] leading-snug break-words">
+              {serviceName}
+            </p>
+            {!!category && <p className="mt-1 text-[12px] text-black/50">{category}</p>}
 
-            <StatusBadge status={req?.status} />
+            {serviceMissing && (
+              <p className="mt-2 text-[12px] text-black/45">
+                Este servicio ya no está publicado, pero conservamos los datos de la solicitud.
+              </p>
+            )}
           </div>
 
-          <div className="mt-4 pt-4 border-t border-black/10">
-            <p className="text-[12px] font-semibold text-black/40">Cliente</p>
-            <p className="mt-1 text-[14px] font-extrabold text-[#3D3D3D]">{clientName}</p>
-          </div>
-        </CardShell>
+          <StatusBadge status={req?.status} />
+        </div>
 
-        {/* 2) Detalle (orden pedido) */}
+        <div className="mt-4 pt-4 border-t border-black/10">
+          <p className="text-[12px] font-semibold text-black/40">Cliente</p>
+
+          {/* ✅ Fila Cliente + botón chat dentro */}
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <p className="text-[14px] font-extrabold text-[#3D3D3D] truncate">{clientName}</p>
+
+            {["agendada", "completada", "incumplida"].includes(
+              String(req?.status || "").toLowerCase()
+            ) ? (
+              <button
+                type="button"
+                onClick={() => nav(`/provider/requests/${requestId}/chat`)}
+                className="shrink-0 h-11 w-11 rounded-full bg-[#F2F2F2] border border-black/10 grid place-items-center shadow-[0_8px_18px_rgba(0,0,0,0.05)] hover:bg-[#EAEAEA] active:scale-[0.98] transition"
+                aria-label="Abrir chat"
+                title="Abrir chat"
+              >
+                <IconifyIcon icon="solar:chat-round-dots-linear" className="h-5 w-5 text-black/55" />
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </CardShell>
+
+        {/* 2) Detalle */}
         <CardShell className="mt-4 p-5">
           <SectionTitle icon="mdi:clipboard-text-outline" title="Detalle" />
 
-          {/* ✅ 1er cajita: barrio, dirección —— fecha, hora */}
           <div className="mt-3 rounded-[18px] bg-black/[0.02] border border-black/10 p-4">
             <div className="grid gap-2 text-[13px]">
               <div className="flex items-start justify-between gap-3">
@@ -335,7 +493,6 @@ export default function ProviderRequestDetail() {
             </div>
           </div>
 
-          {/* ✅ 2da caja aparte: SOLO descripción */}
           <div className="mt-3 rounded-[18px] bg-black/[0.02] border border-black/10 p-4">
             <p className="text-[12px] font-semibold text-black/50">Descripción</p>
             {onlyDesc ? (
@@ -356,20 +513,15 @@ export default function ProviderRequestDetail() {
                 <span className="text-black/45">Método</span>
                 <span className="font-semibold text-black/70">{paymentLabel(paymentMethod)}</span>
               </div>
-
-              {req?.payment_status ? (
-                <div className="flex items-center justify-between">
-                  <span className="text-black/45">Estado</span>
-                  <span className="font-semibold text-black/70">{paymentStatusLabel(req.payment_status)}</span>
-                </div>
-              ) : null}
             </div>
           </div>
 
           <div className="mt-3 rounded-[18px] bg-black/[0.02] border border-black/10 p-4">
             <div className="grid gap-2 text-[13px]">
               <div className="flex items-center justify-between">
-                <span className="text-black/45">{String(pricingType || "").toUpperCase() === "B" ? "Cotización" : "Servicio"}</span>
+                <span className="text-black/45">
+                  {String(pricingType || "").toUpperCase() === "B" ? "Cotización" : "Servicio"}
+                </span>
                 <span className="font-semibold text-black/70">{moneyARS(amounts?.base)}</span>
               </div>
 
@@ -398,7 +550,6 @@ export default function ProviderRequestDetail() {
             <SectionTitle icon="mdi:shield-check-outline" title="Finalizar turno" />
 
             <div className="mt-3 rounded-[22px] border border-black/10 overflow-hidden">
-              {/* ✅ fondo gris clarito (sin gradient) */}
               <div className="p-4 bg-[#F3F4F6]">
                 <p className="text-[12px] font-extrabold text-[#1E2F5D]">Código de verificación</p>
                 <p className="mt-1 text-[12px] text-black/50 leading-snug">
@@ -438,11 +589,32 @@ export default function ProviderRequestDetail() {
             </div>
           </CardShell>
         )}
-
-        {/* ❌ Sacado el botón de “volver a solicitudes” */}
       </div>
 
-      {/* ✅ Modal de éxito (bottom sheet estilo Orby) */}
+      {/* ✅ Sheet ⋯ */}
+      <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Reportar problema">
+        <button
+          type="button"
+          onClick={() => {
+            setMenuOpen(false);
+            toast.info("Reportar problema", "Más adelante podés llevar esto a Soporte/Help.");
+          }}
+          className="w-full h-[54px] rounded-full bg-white border border-black/10 text-[#3D3D3D] text-[14px] font-extrabold active:scale-[0.99] transition inline-flex items-center justify-center gap-2"
+        >
+          <IconifyIcon icon="mdi:alert-circle-outline" className="h-5 w-5 text-black/45" />
+          Reportar problema
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMenuOpen(false)}
+          className="mt-3 w-full h-[54px] rounded-full bg-black/[0.04] text-[#3D3D3D] text-[14px] font-extrabold active:scale-[0.99] transition"
+        >
+          Cerrar
+        </button>
+      </Sheet>
+
+      {/* ✅ Modal de éxito */}
       {successOpen && (
         <div className="fixed inset-0 z-[9999]">
           <button className="absolute inset-0 bg-black/40" onClick={() => setSuccessOpen(false)} aria-label="Cerrar" />
@@ -473,7 +645,9 @@ export default function ProviderRequestDetail() {
                   <div className="mx-auto h-12 w-12 rounded-full bg-white border border-black/10 grid place-items-center shadow-[0_8px_18px_rgba(0,0,0,0.06)]">
                     <IconifyIcon icon="mdi:check" className="h-7 w-7 text-[#1E2F5D]" />
                   </div>
-                  <p className="mt-3 text-[14px] font-semibold text-black/60">¡Listo! Ya podés seguir con tus próximas solicitudes.</p>
+                  <p className="mt-3 text-[14px] font-semibold text-black/60">
+                    ¡Listo! Ya podés seguir con tus próximas solicitudes.
+                  </p>
                 </div>
 
                 <button

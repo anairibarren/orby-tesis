@@ -5,6 +5,21 @@ import { safeCreateNotification } from "./notifications";
 const TABLE = "service_requests";
 const PROVIDER_SERVICES = "provider_services";
 const PROFILES = "profiles";
+const SERVICE_CATALOG = "service_catalog";
+
+/* ---------------- Offline guard ---------------- */
+function isOfflineLikeError(e) {
+  // navegador reporta offline
+  if (typeof navigator !== "undefined" && navigator && navigator.onLine === false) return true;
+
+  const msg = String(e?.message || e || "").toLowerCase();
+  return (
+    msg.includes("failed to fetch") ||
+    msg.includes("networkerror") ||
+    msg.includes("load failed") ||
+    msg.includes("fetch") && msg.includes("failed")
+  );
+}
 
 /* ---------------- Helpers ---------------- */
 function uniq(arr) {
@@ -76,7 +91,13 @@ function truncateText(v, max = 110) {
 function formatWhen(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
-  return d.toLocaleString("es-AR", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString("es-AR", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 async function getActorIdFallback() {
@@ -101,7 +122,6 @@ function normalizePaymentMethod(v) {
 
   if (CANONICAL.has(m)) return m;
 
-  // no forzamos a cash acá: devolvemos lo que haya, y si rompe CHECK, hacemos fallback abajo
   return m;
 }
 
@@ -119,7 +139,8 @@ function candidatesForPaymentMethod(input) {
   if (base) candidates.push(base);
 
   if (base === "cash" || base === "efectivo") candidates.push("cash", "efectivo");
-  if (base === "mp" || base === "mercadopago" || base === "mercado_pago") candidates.push("mp", "mercadopago", "mercado_pago", "transfer");
+  if (base === "mp" || base === "mercadopago" || base === "mercado_pago")
+    candidates.push("mp", "mercadopago", "mercado_pago", "transfer");
   if (base === "transfer") candidates.push("transfer", "mp", "mercadopago", "mercado_pago");
   if (base === "card" || base === "tarjeta") candidates.push("card", "tarjeta");
 
@@ -130,101 +151,144 @@ function candidatesForPaymentMethod(input) {
 
 /* ---------------- Enrich ---------------- */
 async function enrichRequests(requests) {
-  const providerIds = uniq((requests ?? []).map((r) => r.provider_id));
-  const clientIds = uniq((requests ?? []).map((r) => r.client_id));
-  const serviceIds = uniq((requests ?? []).map((r) => getServiceRefId(r)));
+  try {
+    const providerIds = uniq((requests ?? []).map((r) => r.provider_id));
+    const clientIds = uniq((requests ?? []).map((r) => r.client_id));
+    const serviceIds = uniq((requests ?? []).map((r) => getServiceRefId(r)));
 
-  let providersById = {};
-  if (providerIds.length) {
-    const { data, error } = await supabase
-      .from(PROFILES)
-      .select("id, full_name, neighborhood, avatar_url, provider_verified")
-      .in("id", providerIds);
+    // ✅ NUEVO: catalog ids (para fallback cuando se borra provider_services)
+    const catalogIds = uniq((requests ?? []).map((r) => r?.catalog_id ?? r?.service_id ?? null));
 
-    if (error) throw error;
-    providersById = Object.fromEntries((data ?? []).map((p) => [p.id, p]));
-  }
+    let providersById = {};
+    if (providerIds.length) {
+      const { data, error } = await supabase
+        .from(PROFILES)
+        .select("id, full_name, neighborhood, avatar_url, provider_verified, certificate_url, cert_url")
+        .in("id", providerIds);
 
-  // ✅ NUEVO: clientes para que no aparezca “Sin nombre” en Requests.jsx
-  let clientsById = {};
-  if (clientIds.length) {
-    const { data, error } = await supabase
-      .from(PROFILES)
-      .select("id, full_name, neighborhood, avatar_url, role")
-      .in("id", clientIds);
+      if (error) throw error;
+      providersById = Object.fromEntries((data ?? []).map((p) => [p.id, p]));
+    }
 
-    if (error) throw error;
-    clientsById = Object.fromEntries((data ?? []).map((p) => [p.id, p]));
-  }
+    // ✅ clientes para que no aparezca “Sin nombre” en Requests.jsx
+    let clientsById = {};
+    if (clientIds.length) {
+      const { data, error } = await supabase
+        .from(PROFILES)
+        .select("id, full_name, neighborhood, avatar_url, role")
+        .in("id", clientIds);
 
-  let psById = {};
-  if (serviceIds.length) {
-    const { data, error } = await supabase
-      .from(PROVIDER_SERVICES)
-      .select(
-        `
-        id,
-        provider_id,
-        catalog_id,
-        base_price,
-        is_active,
-        service_catalog:catalog_id (
+      if (error) throw error;
+      clientsById = Object.fromEntries((data ?? []).map((p) => [p.id, p]));
+    }
+
+    let psById = {};
+    if (serviceIds.length) {
+      const { data, error } = await supabase
+        .from(PROVIDER_SERVICES)
+        .select(
+          `
           id,
-          name,
-          category,
-          pricing_type,
-          fixed_price,
-          currency
+          provider_id,
+          catalog_id,
+          base_price,
+          is_active,
+          service_catalog:catalog_id (
+            id,
+            name,
+            category,
+            pricing_type,
+            fixed_price,
+            currency
+          )
+        `
         )
-      `
-      )
-      .in("id", serviceIds);
+        .in("id", serviceIds);
 
-    if (error) throw error;
-    psById = Object.fromEntries((data ?? []).map((ps) => [ps.id, ps]));
+      if (error) throw error;
+      psById = Object.fromEntries((data ?? []).map((ps) => [ps.id, ps]));
+    }
+
+    // ✅ NUEVO: catálogo directo (fallback robusto)
+    let catalogById = {};
+    if (catalogIds.length) {
+      const { data, error } = await supabase
+        .from(SERVICE_CATALOG)
+        .select("id, name, category, pricing_type, fixed_price, currency, is_active")
+        .in("id", catalogIds);
+
+      if (error) throw error;
+      catalogById = Object.fromEntries((data ?? []).map((c) => [c.id, c]));
+    }
+
+    return (requests ?? []).map((r) => {
+      const ps = psById[getServiceRefId(r)] ?? null;
+
+      const catalog =
+        ps?.service_catalog ??
+        (r?.catalog_id ? catalogById[r.catalog_id] : null) ??
+        (r?.service_id ? catalogById[r.service_id] : null) ??
+        null;
+
+      const provider = providersById[r.provider_id] ?? null;
+      const clientProfile = clientsById[r.client_id] ?? null;
+
+      return {
+        ...r,
+        provider_service: ps,
+        catalog,
+        provider,
+        client_profile: clientProfile,
+        client: clientProfile,
+      };
+    });
+  } catch (e) {
+    // ✅ Offline: devolvemos sin enrich (para no romper UI)
+    if (isOfflineLikeError(e)) {
+      return (requests ?? []).map((r) => ({
+        ...r,
+        provider_service: null,
+        catalog: null,
+        provider: null,
+        client_profile: null,
+        client: null,
+      }));
+    }
+    throw e;
   }
-
-  return (requests ?? []).map((r) => {
-    const ps = psById[getServiceRefId(r)] ?? null;
-    const catalog = ps?.service_catalog ?? null;
-    const provider = providersById[r.provider_id] ?? null;
-
-    const clientProfile = clientsById[r.client_id] ?? null;
-
-    return {
-      ...r,
-      provider_service: ps,
-      catalog,
-      provider,
-
-      // ✅ para que getClientName lo detecte en Requests.jsx
-      client_profile: clientProfile,
-      client: clientProfile,
-    };
-  });
 }
 
 /* ---------------- LISTADOS ---------------- */
 export async function listMyRequestsAsClientRich(clientId) {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select("*")
-    .eq("client_id", clientId)
-    .order("created_at", { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false });
 
-  if (error) throw error;
-  return enrichRequests(data ?? []);
+    if (error) throw error;
+    return enrichRequests(data ?? []);
+  } catch (e) {
+    if (isOfflineLikeError(e)) return [];
+    throw e;
+  }
 }
 
 export async function listIncomingRequestsRich(providerId) {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select("*")
-    .eq("provider_id", providerId)
-    .order("created_at", { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("provider_id", providerId)
+      .order("created_at", { ascending: false });
 
-  if (error) throw error;
-  return enrichRequests(data ?? []);
+    if (error) throw error;
+    return enrichRequests(data ?? []);
+  } catch (e) {
+    if (isOfflineLikeError(e)) return [];
+    throw e;
+  }
 }
 
 // compat
@@ -258,24 +322,26 @@ async function tryInsertWithUnknownColumnFallback(payload) {
 }
 
 export async function createRequest(payload) {
+  // ✅ si estás offline, no intentes crear
+  if (typeof navigator !== "undefined" && navigator && navigator.onLine === false) return null;
+
   const normalized = { ...payload };
 
-  // normalizamos ids
   if (normalized.provider_service_id && !normalized.service_id) normalized.service_id = normalized.provider_service_id;
   if (!normalized.status) normalized.status = "solicitada";
 
-  // normalizamos método (pero no forzamos)
   if (Object.prototype.hasOwnProperty.call(normalized, "payment_method")) {
     normalized.payment_method = normalizePaymentMethod(normalized.payment_method);
   }
 
   let inserted = null;
 
-  // 1) intento directo
   try {
     inserted = await tryInsertWithUnknownColumnFallback(normalized);
   } catch (e) {
-    // 2) si rompe por CHECK de payment_method, reintentamos con variantes
+    // ✅ si se cayó la red a mitad de camino
+    if (isOfflineLikeError(e)) return null;
+
     if (isPaymentMethodCheckError(e) && Object.prototype.hasOwnProperty.call(normalized, "payment_method")) {
       const list = candidatesForPaymentMethod(normalized.payment_method);
 
@@ -285,21 +351,23 @@ export async function createRequest(payload) {
           inserted = await tryInsertWithUnknownColumnFallback(next);
           break;
         } catch (e2) {
+          if (isOfflineLikeError(e2)) return null;
           if (isPaymentMethodCheckError(e2)) continue;
           throw e2;
         }
       }
     } else {
-      // 3) fallback legacy
       const cleaned1 = stripUnknownColumnsByError(normalized, e);
       inserted = await tryInsertWithUnknownColumnFallback(cleaned1);
     }
   }
 
   // ✅ NOTIFICACIÓN AL PRESTADOR: NUEVA SOLICITUD
-  // (no rompemos si falla por policy)
   try {
     if (inserted?.provider_id) {
+      // si estás offline al final, no notifiques
+      if (typeof navigator !== "undefined" && navigator && navigator.onLine === false) return inserted;
+
       const actorId = (await getActorIdFallback()) || inserted?.client_id || null;
 
       const when = inserted?.preferred_datetime ? formatWhen(inserted.preferred_datetime) : null;
@@ -330,15 +398,22 @@ export async function createRequest(payload) {
 }
 
 export async function updateRequest(requestId, patch) {
-  const { data, error } = await supabase.from(TABLE).update(patch).eq("id", requestId).select("*").limit(1);
-  if (error) throw error;
-  return data?.[0] ?? null;
+  try {
+    const { data, error } = await supabase.from(TABLE).update(patch).eq("id", requestId).select("*").limit(1);
+    if (error) throw error;
+    return data?.[0] ?? null;
+  } catch (e) {
+    if (isOfflineLikeError(e)) return null;
+    throw e;
+  }
 }
 
 export async function updateRequestSafe(requestId, patch) {
   try {
     return await updateRequest(requestId, patch);
   } catch (e) {
+    if (isOfflineLikeError(e)) return null;
+
     const cleaned = stripUnknownColumnsByError(patch, e);
     if (!Object.keys(cleaned).length) return null;
     return await updateRequest(requestId, cleaned);
@@ -350,16 +425,21 @@ export async function updateRequestStatus(requestId, status) {
 }
 
 export async function deleteRequest(requestId) {
-  const { data, error } = await supabase.from(TABLE).delete().eq("id", requestId).select("id");
-  if (error) throw error;
+  try {
+    const { data, error } = await supabase.from(TABLE).delete().eq("id", requestId).select("id");
+    if (error) throw error;
 
-  const deleted = Array.isArray(data) ? data.length : 0;
-  if (!deleted) {
-    throw new Error(
-      "No se pudo eliminar (sin permisos o la solicitud ya no existe). Revisá las policies (RLS) de service_requests."
-    );
+    const deleted = Array.isArray(data) ? data.length : 0;
+    if (!deleted) {
+      throw new Error(
+        "No se pudo eliminar (sin permisos o la solicitud ya no existe). Revisá las policies (RLS) de service_requests."
+      );
+    }
+    return true;
+  } catch (e) {
+    if (isOfflineLikeError(e)) return false;
+    throw e;
   }
-  return true;
 }
 
 /* ---------------- Pago SIMULADO ---------------- */
@@ -372,64 +452,95 @@ export async function markRequestPaid(requestId) {
 
 /* ---------------- RPC: COMPLETADO CON CÓDIGO ---------------- */
 export async function setCompletionCode(requestId, code, expiresMinutes = 180) {
-  const { error } = await supabase.rpc("orby_set_completion_code", {
-    p_request_id: requestId,
-    p_code: code,
-    p_expires_minutes: expiresMinutes,
-  });
-  if (error) throw error;
-  return true;
+  // ✅ offline: no intentes RPC
+  if (typeof navigator !== "undefined" && navigator && navigator.onLine === false) return false;
+
+  try {
+    const { error } = await supabase.rpc("orby_set_completion_code", {
+      p_request_id: requestId,
+      p_code: code,
+      p_expires_minutes: expiresMinutes,
+    });
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    if (isOfflineLikeError(e)) return false;
+    throw e;
+  }
 }
 
 export async function completeWithCode(requestId, code) {
-  const { data, error } = await supabase.rpc("orby_complete_request_with_code", {
-    p_request_id: requestId,
-    p_code: code,
-  });
-  if (error) throw error;
-  return data;
+  // ✅ offline: no intentes RPC
+  if (typeof navigator !== "undefined" && navigator && navigator.onLine === false) return null;
+
+  try {
+    const { data, error } = await supabase.rpc("orby_complete_request_with_code", {
+      p_request_id: requestId,
+      p_code: code,
+    });
+    if (error) throw error;
+    return data;
+  } catch (e) {
+    if (isOfflineLikeError(e)) return null;
+    throw e;
+  }
 }
 
 /* ---------------- Detail robusto (SIN .single) ---------------- */
 export async function getRequestById(requestId) {
   if (!requestId) throw new Error("requestId inválido");
 
-  const { data, error } = await supabase.from(TABLE).select("*").eq("id", requestId).limit(1);
-  if (error) throw error;
-  return data?.[0] ?? null;
+  try {
+    const { data, error } = await supabase.from(TABLE).select("*").eq("id", requestId).limit(1);
+    if (error) throw error;
+    return data?.[0] ?? null;
+  } catch (e) {
+    if (isOfflineLikeError(e)) return null;
+    throw e;
+  }
 }
 
 export async function getProviderServiceById(providerServiceId) {
   if (!providerServiceId) return null;
 
-  const { data, error } = await supabase
-    .from(PROVIDER_SERVICES)
-    .select(
+  try {
+    const { data, error } = await supabase
+      .from(PROVIDER_SERVICES)
+      .select(
+        `
+        id,
+        provider_id,
+        catalog_id,
+        base_price,
+        duration_minutes,
+        service_catalog:catalog_id ( id, name, category, pricing_type, currency )
       `
-      id,
-      provider_id,
-      catalog_id,
-      base_price,
-      duration_minutes,
-      service_catalog:catalog_id ( id, name, category, pricing_type, currency )
-    `
-    )
-    .eq("id", providerServiceId)
-    .limit(1);
+      )
+      .eq("id", providerServiceId)
+      .limit(1);
 
-  if (error) throw error;
-  return data?.[0] ?? null;
+    if (error) throw error;
+    return data?.[0] ?? null;
+  } catch (e) {
+    if (isOfflineLikeError(e)) return null;
+    throw e;
+  }
 }
 
 export async function getProfileById(profileId) {
   if (!profileId) return null;
 
-  const { data, error } = await supabase
-    .from(PROFILES)
-    .select("id, full_name, neighborhood, avatar_url, provider_verified")
-    .eq("id", profileId)
-    .limit(1);
+  try {
+    const { data, error } = await supabase
+      .from(PROFILES)
+      .select("id, full_name, neighborhood, avatar_url, provider_verified, certificate_url, cert_url")
+      .eq("id", profileId)
+      .limit(1);
 
-  if (error) throw error;
-  return data?.[0] ?? null;
+    if (error) throw error;
+    return data?.[0] ?? null;
+  } catch (e) {
+    if (isOfflineLikeError(e)) return null;
+    throw e;
+  }
 }

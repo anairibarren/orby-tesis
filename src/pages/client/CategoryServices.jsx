@@ -106,12 +106,13 @@ export default function CategoryServices() {
         <button
           type="button"
           onClick={goBack}
-          className="absolute left-0 h-11 w-11 rounded-full bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)] grid place-items-center"
+          className="absolute left-0 h-11 w-11 rounded-full bg-white shadow-[0_4px_4.8px_rgba(0,0,0,0.06)] grid place-items-center"
           aria-label="Volver"
           title="Volver"
         >
-          <IconifyIcon icon="mdi:chevron-left" className="h-7 w-7 text-black/60" />
+          <span className="text-xl leading-none">‹</span>
         </button>
+
 
         <h1 className="text-[18px] font-semibold text-[#3D3D3D]">{decodedCategory}</h1>
       </div>

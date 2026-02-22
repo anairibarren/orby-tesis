@@ -1,3 +1,5 @@
+//src/components/RequireGuest.jsx
+import { useMemo } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
@@ -13,12 +15,17 @@ export default function RequireGuest({ children }) {
 
   if (loading || (user && profileLoading)) return null;
 
-  // Si hay user pero todavía no hay role, mandamos a elegir rol
+  // ✅ PRIORIDAD: si venimos de signup/login, respetar destino y evitar flash a /client
+  const forced = sessionStorage.getItem("orby_post_auth_redirect");
+  if (forced) {
+    sessionStorage.removeItem("orby_post_auth_redirect");
+    return <Navigate to={forced} replace />;
+  }
+
   if (user && !role) {
     return <Navigate to="/register" replace state={{ from: location.pathname }} />;
   }
 
-  // Si está logueada y ya tiene role, afuera de login/register
   if (user && role) {
     return <Navigate to={resolveHome(role)} replace />;
   }

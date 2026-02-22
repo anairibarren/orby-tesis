@@ -343,7 +343,7 @@ export default function Agenda() {
           <button
             type="button"
             onClick={() => setSelectedDate(startOfDay(new Date()))}
-            className="h-9 rounded-full bg-[#EAF2FF] px-4 text-[12px] font-semibold text-[#1E2F5D] active:scale-[0.98] transition"
+            className="h-9 rounded-full bg-[rgba(44,72,148,0.18)] px-4 text-[12px] font-semibold text-[#1E2F5D] active:scale-[0.98] transition"
           >
             Ir a hoy
           </button>

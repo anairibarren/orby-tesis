@@ -36,6 +36,19 @@ function fileLabelFromUrl(url) {
   }
 }
 
+function uniqUrls(arr) {
+  const out = [];
+  const seen = new Set();
+  for (const u of arr || []) {
+    const x = String(u || "").trim();
+    if (!x) continue;
+    if (seen.has(x)) continue;
+    seen.add(x);
+    out.push(x);
+  }
+  return out;
+}
+
 /* ---------------- UI atoms ---------------- */
 function IconButton({ onClick, title, children, className = "", disabled = false }) {
   return (
@@ -46,7 +59,8 @@ function IconButton({ onClick, title, children, className = "", disabled = false
       aria-label={title}
       disabled={disabled}
       className={[
-        "h-11 w-11 rounded-full bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)] grid place-items-center shrink-0 active:scale-[0.98] transition",
+        // ✅ mobile: un poquito más chico + mejor touch
+        "h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)] grid place-items-center shrink-0 active:scale-[0.98] transition",
         disabled ? "opacity-60 pointer-events-none" : "",
         className,
       ].join(" ")}
@@ -91,8 +105,8 @@ function InitialsAvatar({ name }) {
   }, [name]);
 
   return (
-    <div className="h-[76px] w-[76px] rounded-[26px] bg-[#DDE6F7] grid place-items-center shrink-0">
-      <span className="text-[18px] font-extrabold text-[#1E2F5D]">{initials}</span>
+    <div className="h-[64px] w-[64px] xs:h-[70px] xs:w-[70px] sm:h-[76px] sm:w-[76px] rounded-[22px] xs:rounded-[24px] sm:rounded-[26px] bg-[#DDE6F7] grid place-items-center shrink-0">
+      <span className="text-[16px] xs:text-[17px] sm:text-[18px] font-extrabold text-[#1E2F5D]">{initials}</span>
     </div>
   );
 }
@@ -103,19 +117,26 @@ function RolePill({ role }) {
   const styles = isProvider ? "bg-[#2A4691]/10 text-[#2A4691]" : "bg-black/[0.04] text-black/55";
   const pretty = isProvider ? "Prestador" : label;
 
-  return <span className={`inline-flex items-center rounded-full px-3 py-1 text-[12px] font-semibold ${styles}`}>{pretty}</span>;
+  return (
+    <span className={`inline-flex items-center rounded-full px-3 py-1 text-[12px] font-semibold ${styles}`}>
+      {pretty}
+    </span>
+  );
 }
 
 function InfoRow({ icon, label, value, right, onRightClick }) {
   return (
     <div className="flex items-start gap-3 py-3">
-      <span className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center shrink-0">
+      <span className="h-9 w-9 xs:h-10 xs:w-10 rounded-full bg-black/[0.04] grid place-items-center shrink-0">
         <IconifyIcon icon={icon} className="h-5 w-5 text-black/45" />
       </span>
 
       <div className="flex-1 min-w-0">
         <p className="text-[12px] font-semibold text-black/40">{label}</p>
-        <p className="mt-0.5 text-[14px] font-semibold text-[#3D3D3D] truncate">{value || "—"}</p>
+        {/* ✅ mobile: permitir 2 líneas si es largo, evitando que “rompa” */}
+        <p className="mt-0.5 text-[14px] font-semibold text-[#3D3D3D] break-words line-clamp-2">
+          {value || "—"}
+        </p>
       </div>
 
       {right ? (
@@ -132,20 +153,24 @@ function RowButton({ icon, title, desc, onClick, right }) {
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] p-4 text-left active:scale-[0.99] transition"
+      className="w-full rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] p-4 xs:p-[18px] text-left active:scale-[0.99] transition box-border"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center shrink-0">
+          <span className="h-9 w-9 xs:h-10 xs:w-10 rounded-full bg-black/[0.04] grid place-items-center shrink-0">
             <IconifyIcon icon={icon} className="h-5 w-5 text-black/45" />
           </span>
           <div className="min-w-0">
             <p className="text-[14px] font-extrabold text-[#3D3D3D] truncate">{title}</p>
-            {desc ? <p className="mt-0.5 text-[12px] text-black/45 truncate">{desc}</p> : null}
+            {desc ? <p className="mt-0.5 text-[12px] text-black/45 line-clamp-1">{desc}</p> : null}
           </div>
         </div>
 
-        {right ? <div className="shrink-0">{right}</div> : <IconifyIcon icon="mdi:chevron-right" className="h-7 w-7 text-black/25 shrink-0" />}
+        {right ? (
+          <div className="shrink-0">{right}</div>
+        ) : (
+          <IconifyIcon icon="mdi:chevron-right" className="h-7 w-7 text-black/25 shrink-0" />
+        )}
       </div>
     </button>
   );
@@ -291,14 +316,15 @@ function ViewerModal({ open, onClose, title, url }) {
   return (
     <div className="fixed inset-0 z-[9999]">
       <button type="button" className="absolute inset-0 bg-black/50" onClick={onClose} aria-label="Cerrar" />
-      <div className="absolute inset-x-0 top-10 bottom-10 mx-auto max-w-[520px] px-4">
-        <div className="h-full rounded-[24px] bg-white shadow-2xl overflow-hidden flex flex-col">
-          <div className="px-5 py-4 border-b border-black/10 flex items-center justify-between">
+      {/* ✅ mobile: usar safe areas y ajustar top/bottom */}
+      <div className="absolute inset-x-0 top-4 bottom-4 xs:top-8 xs:bottom-8 sm:top-10 sm:bottom-10 mx-auto w-full max-w-[460px] px-3 xs:px-4">
+        <div className="h-full rounded-[22px] xs:rounded-[24px] bg-white shadow-2xl overflow-hidden flex flex-col">
+          <div className="px-4 xs:px-5 py-3 xs:py-4 border-b border-black/10 flex items-center justify-between gap-3">
             <p className="text-[14px] font-extrabold text-[#3D3D3D] truncate">{title || "Archivo"}</p>
             <button
               type="button"
               onClick={onClose}
-              className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center"
+              className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center shrink-0"
               aria-label="Cerrar"
               title="Cerrar"
             >
@@ -331,9 +357,9 @@ function ViewerModal({ open, onClose, title, url }) {
 function ConfirmModal({ open, title, desc, confirmText = "Eliminar", cancelText = "Cancelar", onConfirm, onClose, busy }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 xs:p-6">
       <button type="button" className="absolute inset-0 bg-black/50" onClick={() => !busy && onClose?.()} aria-label="Cerrar" />
-      <div className="relative w-full max-w-md rounded-[22px] bg-white shadow-2xl p-5">
+      <div className="relative w-full max-w-md rounded-[22px] bg-white shadow-2xl p-4 xs:p-5">
         <p className="text-[16px] font-extrabold text-[#3D3D3D]">{title}</p>
         {desc ? <p className="mt-2 text-[13px] text-black/55 leading-relaxed">{desc}</p> : null}
 
@@ -364,6 +390,67 @@ function ConfirmModal({ open, title, desc, confirmText = "Eliminar", cancelText 
   );
 }
 
+/* ---------------- Cert list modal ---------------- */
+function CertListModal({ open, onClose, urls, onOpenUrl }) {
+  if (!open) return null;
+
+  const list = urls || [];
+
+  return (
+    <div className="fixed inset-0 z-[9999]">
+      <button type="button" className="absolute inset-0 bg-black/50" onClick={onClose} aria-label="Cerrar" />
+
+      {/* ✅ mobile: más padding abajo por safe area y menos lateral */}
+      <div className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-[460px] px-3 xs:px-4 pb-[max(16px,env(safe-area-inset-bottom))]">
+        <div className="rounded-[24px] xs:rounded-[26px] bg-white shadow-2xl border border-black/10 overflow-hidden">
+          <div className="px-4 xs:px-5 py-3 xs:py-4 border-b border-black/10 flex items-center justify-between gap-3">
+            <p className="text-[15px] font-extrabold text-[#3D3D3D]">Certificaciones</p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center shrink-0"
+              aria-label="Cerrar"
+              title="Cerrar"
+            >
+              <IconifyIcon icon="mdi:close" className="h-6 w-6 text-black/45" />
+            </button>
+          </div>
+
+          <div className="p-3 xs:p-4 grid gap-2">
+            {list.length ? (
+              list.map((u, idx) => (
+                <button
+                  key={`${u}-${idx}`}
+                  type="button"
+                  onClick={() => onOpenUrl?.(u, idx)}
+                  className="w-full rounded-[18px] border border-black/10 bg-[#F7F7F7] px-4 py-4 flex items-center justify-between active:scale-[0.99] transition"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="h-10 w-10 rounded-full bg-white grid place-items-center shrink-0 border border-black/10">
+                      <IconifyIcon icon="mdi:file-document-outline" className="h-5 w-5 text-black/45" />
+                    </span>
+                    <div className="min-w-0 text-left">
+                      <p className="text-[13px] font-extrabold text-[#3D3D3D] truncate">{`Certificado ${idx + 1}`}</p>
+                      <p className="mt-0.5 text-[11px] text-black/45 truncate">{fileLabelFromUrl(u)}</p>
+                    </div>
+                  </div>
+
+                  <IconifyIcon icon="mdi:chevron-right" className="h-6 w-6 text-black/25 shrink-0" />
+                </button>
+              ))
+            ) : (
+              <div className="rounded-[18px] border border-black/10 bg-[#F7F7F7] p-4">
+                <p className="text-[13px] font-semibold text-[#111827]">Sin archivos</p>
+                <p className="mt-1 text-[12px] text-black/50">Todavía no cargaste certificaciones.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------------- Edit modal (bottom sheet) ---------------- */
 function EditProfileModal({
   open,
@@ -375,6 +462,9 @@ function EditProfileModal({
   certFiles,
   setCertFiles,
   setCertTouched,
+
+  // ✅ FIX CLAVE: ahora sí llega al modal
+  onPersistCerts,
 }) {
   const fileRef = useRef(null);
 
@@ -473,6 +563,7 @@ function EditProfileModal({
 
     setCertRemoving(true);
     try {
+      // 1) borrar del bucket (si es URL pública del bucket certifications)
       const marker = "/object/public/certifications/";
       const idx = String(url).indexOf(marker);
 
@@ -482,11 +573,17 @@ function EditProfileModal({
         if (del.error) throw del.error;
       }
 
+      // 2) actualizar estado local (modal)
       const next = (certFiles || []).filter((u) => u !== url);
       setCertTouched?.(true);
       setCertFiles?.(next);
 
-      toast?.success("Listo", "Certificación eliminada. Guardá para aplicar.");
+      // ✅ 3) persistir inmediato en DB + refrescar profile global
+      if (typeof onPersistCerts === "function") {
+        await onPersistCerts(next);
+      }
+
+      toast?.success("Listo", "Certificación eliminada.");
     } catch (e) {
       toast?.error("No se pudo eliminar", e?.message || "Error eliminando certificación.");
     } finally {
@@ -512,173 +609,177 @@ function EditProfileModal({
             />
 
             <motion.div
-              className="fixed inset-x-0 bottom-0 z-[9999] mx-auto max-w-[520px] overflow-x-hidden"
+              className="fixed inset-x-0 bottom-0 z-[9999] w-full"
               initial={{ y: 40, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 40, opacity: 0 }}
               transition={{ type: "spring", stiffness: 420, damping: 34 }}
             >
-              <div className="rounded-t-[28px] bg-white shadow-2xl px-5 pt-4 pb-6 overflow-x-hidden">
-                <div className="flex justify-center">
-                  <div className="h-1.5 w-12 rounded-full bg-black/10" />
-                </div>
-
-                <div className="mt-4 flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="text-[18px] font-extrabold text-[#3D3D3D]">Editar perfil</h3>
-                    <p className="mt-1 text-[12px] text-black/50">Elegí un barrio dentro de Vicente López.</p>
+              {/* ✅ mobile: menos padding lateral y más alto usable */}
+              <div className="mx-auto w-full max-w-[460px] px-3 xs:px-4">
+                <div className="rounded-t-[28px] bg-white shadow-2xl px-4 xs:px-5 pt-4 pb-6 overflow-x-hidden">
+                  <div className="flex justify-center">
+                    <div className="h-1.5 w-12 rounded-full bg-black/10" />
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => !busy && onClose?.()}
-                    className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition disabled:opacity-60"
-                    disabled={busy}
-                    aria-label="Cerrar"
-                    title="Cerrar"
-                  >
-                    <IconifyIcon icon="mdi:close" className="h-6 w-6 text-black/40" />
-                  </button>
-                </div>
-
-                <div className="mt-5 grid gap-3 max-h-[70vh] overflow-y-auto overflow-x-hidden pr-1">
-                  <InputPill
-                    label="Nombre y apellido"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Ej: Juan Pérez"
-                    disabled={busy}
-                    icon="mdi:account-outline"
-                  />
-
-                  <NeighborhoodCombobox value={neighborhood} onChange={(v) => setNeighborhood(v)} disabled={busy} />
-
-                  {!neighborhoodValid && norm(neighborhood) ? (
-                    <div className="rounded-[18px] bg-red-50 px-4 py-3">
-                      <p className="text-[12px] font-semibold text-red-700">Ese barrio no está dentro de Vicente López.</p>
+                  <div className="mt-4 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="text-[17px] xs:text-[18px] font-extrabold text-[#3D3D3D]">Editar perfil</h3>
+                      <p className="mt-1 text-[12px] text-black/50">Mantené tu perfil actualizado.</p>
                     </div>
-                  ) : null}
-
-                  <TextareaPill
-                    label="Descripción"
-                    value={about}
-                    onChange={(e) => setAbout(e.target.value)}
-                    placeholder="Contá brevemente tu experiencia, especialidad, etc."
-                    disabled={busy}
-                    icon="mdi:text-long"
-                    rows={5}
-                  />
-
-                  <div className="rounded-[22px] bg-black/[0.03] p-4 overflow-x-hidden">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <IconifyIcon icon="mdi:file-certificate-outline" className="h-5 w-5 text-black/35" />
-                        <p className="text-[12px] font-semibold text-black/45">Certificaciones</p>
-                      </div>
-
-                      <span className="text-[11px] text-black/45">
-                        {(certFiles || []).length ? `${(certFiles || []).length} archivo(s)` : "Sin archivos"}
-                      </span>
-                    </div>
-
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept=".pdf,image/*"
-                      className="hidden"
-                      onChange={(e) => uploadCertification(e.target.files?.[0])}
-                      disabled={busy || certUploading}
-                    />
 
                     <button
                       type="button"
-                      onClick={() => fileRef.current?.click()}
-                      disabled={busy || certUploading}
-                      className={[
-                        "mt-3 h-12 w-full rounded-full bg-white shadow-[0_8px_18px_rgba(0,0,0,0.06)] px-4 text-[13px] font-semibold text-[#3D3D3D] active:scale-[0.99] transition flex items-center justify-center gap-2",
-                        certUploading ? "opacity-70" : "",
-                      ].join(" ")}
+                      onClick={() => !busy && onClose?.()}
+                      className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition disabled:opacity-60 shrink-0"
+                      disabled={busy}
+                      aria-label="Cerrar"
+                      title="Cerrar"
                     >
-                      <IconifyIcon icon="mdi:upload" className="h-5 w-5 text-black/45" />
-                      {certUploading ? "Subiendo…" : "Subir archivo"}
+                      <IconifyIcon icon="mdi:close" className="h-6 w-6 text-black/40" />
                     </button>
+                  </div>
 
-                    {(certFiles || []).length ? (
-                      <div className="mt-3 grid gap-2 overflow-x-hidden">
-                        {(certFiles || []).map((url, idx) => {
-                          const label = fileLabelFromUrl(url);
-                          return (
-                            <div
-                              key={`${url}-${idx}`}
-                              className="rounded-[18px] bg-white shadow-[0_8px_18px_rgba(0,0,0,0.06)] px-4 py-3 flex items-center justify-between gap-3 overflow-x-hidden"
-                            >
-                              <button
-                                type="button"
-                                onClick={() => openViewer(url)}
-                                className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden text-left"
-                                title="Ver archivo"
-                              >
-                                <span className="h-9 w-9 rounded-full bg-black/[0.04] grid place-items-center shrink-0">
-                                  <IconifyIcon icon="mdi:file-document-outline" className="h-5 w-5 text-black/45" />
-                                </span>
+                  {/* ✅ mobile: scroll más estable, padding bottom para no tapar inputs */}
+                  <div className="mt-5 grid gap-3 max-h-[72vh] overflow-y-auto overflow-x-hidden pr-1 pb-1">
+                    <InputPill
+                      label="Nombre y apellido"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Ej: Juan Pérez"
+                      disabled={busy}
+                      icon="mdi:account-outline"
+                    />
 
-                                <div className="min-w-0 overflow-hidden text-left">
-                                  <p className="text-[13px] font-extrabold text-[#3D3D3D] truncate text-left">{`Certificado ${idx + 1}`}</p>
-                                  <p className="mt-0.5 text-[11px] text-black/45 truncate text-left">{label}</p>
-                                </div>
-                              </button>
+                    <NeighborhoodCombobox value={neighborhood} onChange={(v) => setNeighborhood(v)} disabled={busy} />
 
-                              <button
-                                type="button"
-                                onClick={() => requestRemove(url)}
-                                disabled={busy}
-                                className="h-11 w-11 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition shrink-0"
-                                aria-label="Eliminar"
-                                title="Eliminar"
-                              >
-                                <IconifyIcon icon="mdi:trash-can-outline" className="h-5 w-5 text-black/45" />
-                              </button>
-                            </div>
-                          );
-                        })}
+                    {!neighborhoodValid && norm(neighborhood) ? (
+                      <div className="rounded-[18px] bg-red-50 px-4 py-3">
+                        <p className="text-[12px] font-semibold text-red-700">Ese barrio no está dentro de Vicente López.</p>
                       </div>
                     ) : null}
+
+                    <TextareaPill
+                      label="Descripción"
+                      value={about}
+                      onChange={(e) => setAbout(e.target.value)}
+                      placeholder="Contá brevemente tu experiencia, especialidad, etc."
+                      disabled={busy}
+                      icon="mdi:text-long"
+                      rows={5}
+                    />
+
+                    <div className="rounded-[22px] bg-black/[0.03] p-4 overflow-x-hidden">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <IconifyIcon icon="mdi:file-certificate-outline" className="h-5 w-5 text-black/35 shrink-0" />
+                          <p className="text-[12px] font-semibold text-black/45 truncate">Certificaciones</p>
+                        </div>
+
+                        <span className="text-[11px] text-black/45 shrink-0">
+                          {(certFiles || []).length ? `${(certFiles || []).length} archivo(s)` : "Sin archivos"}
+                        </span>
+                      </div>
+
+                      <input
+                        ref={fileRef}
+                        type="file"
+                        accept=".pdf,image/*"
+                        className="hidden"
+                        onChange={(e) => uploadCertification(e.target.files?.[0])}
+                        disabled={busy || certUploading}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => fileRef.current?.click()}
+                        disabled={busy || certUploading}
+                        className={[
+                          "mt-3 h-12 w-full rounded-full bg-white shadow-[0_8px_18px_rgba(0,0,0,0.06)] px-4 text-[13px] font-semibold text-[#3D3D3D] active:scale-[0.99] transition flex items-center justify-center gap-2",
+                          certUploading ? "opacity-70" : "",
+                        ].join(" ")}
+                      >
+                        <IconifyIcon icon="mdi:upload" className="h-5 w-5 text-black/45" />
+                        {certUploading ? "Subiendo…" : "Subir archivo"}
+                      </button>
+
+                      {(certFiles || []).length ? (
+                        <div className="mt-3 grid gap-2 overflow-x-hidden">
+                          {(certFiles || []).map((url, idx) => {
+                            const label = fileLabelFromUrl(url);
+                            return (
+                              <div
+                                key={`${url}-${idx}`}
+                                className="rounded-[18px] bg-white shadow-[0_8px_18px_rgba(0,0,0,0.06)] px-4 py-3 flex items-center justify-between gap-3 overflow-x-hidden"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => openViewer(url)}
+                                  className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden text-left"
+                                  title="Ver archivo"
+                                >
+                                  <span className="h-9 w-9 rounded-full bg-black/[0.04] grid place-items-center shrink-0">
+                                    <IconifyIcon icon="mdi:file-document-outline" className="h-5 w-5 text-black/45" />
+                                  </span>
+
+                                  <div className="min-w-0 overflow-hidden text-left">
+                                    <p className="text-[13px] font-extrabold text-[#3D3D3D] truncate text-left">{`Certificado ${idx + 1}`}</p>
+                                    <p className="mt-0.5 text-[11px] text-black/45 truncate text-left">{label}</p>
+                                  </div>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => requestRemove(url)}
+                                  disabled={busy}
+                                  className="h-11 w-11 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition shrink-0"
+                                  aria-label="Eliminar"
+                                  title="Eliminar"
+                                >
+                                  <IconifyIcon icon="mdi:trash-can-outline" className="h-5 w-5 text-black/45" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
+
+                  {/* ✅ mobile: botones siempre cómodos + no apretados */}
+                  <div className="mt-5 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => !busy && onClose?.()}
+                      disabled={busy}
+                      className="flex-1 h-[52px] xs:h-[56px] rounded-full bg-black/[0.04] text-[14px] font-extrabold text-black/70 active:scale-[0.99] transition"
+                    >
+                      Cancelar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onSave?.({
+                          full_name: fullName.trim(),
+                          neighborhood: neighborhood.trim(),
+                          about: about.trim(),
+                          certificate_url: (certFiles || [])[0] ? String((certFiles || [])[0]) : null,
+                          cert_url: JSON.stringify(certFiles || []),
+                        })
+                      }
+                      disabled={!canSave}
+                      className={[
+                        "flex-1 h-[52px] xs:h-[56px] rounded-full text-[14px] font-extrabold text-white shadow-[0_10px_24px_rgba(30,47,93,0.22)] active:scale-[0.99] transition",
+                        canSave ? "bg-[#1E2F5D]" : "bg-[#1E2F5D]/50",
+                      ].join(" ")}
+                    >
+                      {busy ? "Guardando..." : "Guardar"}
+                    </button>
+                  </div>
+
+                  <ViewerModal open={viewerOpen} onClose={() => setViewerOpen(false)} title="Certificado" url={viewerUrl} />
                 </div>
-
-                {/* ✅ botones grandes, punta a punta, misma fila */}
-                <div className="mt-5 flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => !busy && onClose?.()}
-                    disabled={busy}
-                    className="flex-1 h-[56px] rounded-full bg-black/[0.04] text-[14px] font-extrabold text-black/70 active:scale-[0.99] transition"
-                  >
-                    Cancelar
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onSave?.({
-                        full_name: fullName.trim(),
-                        neighborhood: neighborhood.trim(),
-                        about: about.trim(),
-                        certificate_url: (certFiles || [])[0] ? String((certFiles || [])[0]) : null,
-                        certificate_urls: JSON.stringify(certFiles || []),
-                      })
-                    }
-                    disabled={!canSave}
-                    className={[
-                      "flex-1 h-[56px] rounded-full text-[14px] font-extrabold text-white shadow-[0_10px_24px_rgba(30,47,93,0.22)] active:scale-[0.99] transition",
-                      canSave ? "bg-[#1E2F5D]" : "bg-[#1E2F5D]/50",
-                    ].join(" ")}
-                  >
-                    {busy ? "Guardando..." : "Guardar"}
-                  </button>
-                </div>
-
-                <ViewerModal open={viewerOpen} onClose={() => setViewerOpen(false)} title="Certificado" url={viewerUrl} />
               </div>
             </motion.div>
           </>
@@ -707,24 +808,34 @@ function EditProfileModal({
 function ProfileSkeleton() {
   return (
     <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
-      <div className="w-full px-6 pt-[40px] pb-6 box-border">
-        <div className="h-7 w-32 rounded bg-black/10 animate-pulse" />
-        <div className="mt-2 h-4 w-72 rounded bg-black/10 animate-pulse" />
+      {/* ✅ mobile: padding-top menor + safe area */}
+      <div className="w-full pt-[28px] xs:pt-[34px] sm:pt-[40px] pb-24 box-border">
+        <div
+          className="mx-auto w-full max-w-[460px] box-border overflow-x-hidden"
+          style={{
+            paddingLeft: "16px",
+            paddingRight: "16px",
+            paddingInline: "max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right))",
+          }}
+        >
+          <div className="h-7 w-32 rounded bg-black/10 animate-pulse" />
+          <div className="mt-2 h-4 w-72 rounded bg-black/10 animate-pulse" />
 
-        <div className="mt-5 rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] p-5 animate-pulse">
-          <div className="flex items-start gap-4">
-            <div className="h-[76px] w-[76px] rounded-[26px] bg-black/10" />
-            <div className="flex-1">
-              <div className="h-5 w-44 rounded bg-black/10" />
-              <div className="mt-3 h-4 w-36 rounded bg-black/10" />
+          <div className="mt-5 rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] p-5 animate-pulse">
+            <div className="flex items-start gap-4">
+              <div className="h-[76px] w-[76px] rounded-[26px] bg-black/10" />
+              <div className="flex-1">
+                <div className="h-5 w-44 rounded bg-black/10" />
+                <div className="mt-3 h-4 w-36 rounded bg-black/10" />
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="mt-4 grid gap-3">
-          <div className="h-[72px] rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] animate-pulse" />
-          <div className="h-[72px] rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] animate-pulse" />
-          <div className="h-[72px] rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] animate-pulse" />
+          <div className="mt-4 grid gap-3">
+            <div className="h-[72px] rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] animate-pulse" />
+            <div className="h-[72px] rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] animate-pulse" />
+            <div className="h-[72px] rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] animate-pulse" />
+          </div>
         </div>
       </div>
     </div>
@@ -744,8 +855,11 @@ export default function Profile() {
   const [certFiles, setCertFiles] = useState([]);
   const [certTouched, setCertTouched] = useState(false);
 
+  // ✅ preview soporta múltiples
+  const [certListOpen, setCertListOpen] = useState(false);
   const [previewViewerOpen, setPreviewViewerOpen] = useState(false);
   const [previewViewerUrl, setPreviewViewerUrl] = useState("");
+  const [previewViewerTitle, setPreviewViewerTitle] = useState("Certificado");
 
   const email = user?.email || "";
   const fullName = profile?.full_name || "";
@@ -753,7 +867,45 @@ export default function Profile() {
   const about = profile?.about || profile?.bio || profile?.description || "";
 
   const certificateUrl = profile?.certificate_url || "";
-  const hasPublishedCertificate = !!norm(certificateUrl);
+
+  // ✅ lista publicada = cert_url (JSON) + fallback certificate_url
+  const publishedCertUrls = useMemo(() => {
+    let parsed = [];
+    try {
+      if (profile?.cert_url) parsed = JSON.parse(profile.cert_url);
+    } catch {
+      parsed = [];
+    }
+
+    const base = [];
+    if (Array.isArray(parsed)) base.push(...parsed);
+    if (norm(certificateUrl)) base.push(certificateUrl);
+
+    return uniqUrls(base);
+  }, [profile?.cert_url, certificateUrl]);
+
+  const hasPublishedCertificate = publishedCertUrls.length > 0;
+
+  // ✅ Opción B (fix real): persistir en DB cuando se borra
+  async function persistCerts(nextCerts) {
+    if (!user?.id) return;
+
+    const list = Array.isArray(nextCerts) ? nextCerts.filter((x) => norm(x)) : [];
+    const first = list[0] ? String(list[0]) : null;
+
+    // 🔥 clave: si queda vacío, guardamos NULL (no "[]")
+    const patch = {
+      certificate_url: first,
+      cert_url: list.length ? JSON.stringify(list) : null,
+    };
+
+    try {
+      const updated = await updateMyProfile(user.id, patch);
+      setProfile?.(updated);
+    } catch (e) {
+      toast.error("No se pudo actualizar", e?.message || "Error actualizando certificaciones.");
+    }
+  }
 
   useEffect(() => {
     if (!editOpen) return;
@@ -761,14 +913,14 @@ export default function Profile() {
 
     let parsed = [];
     try {
-      if (profile?.certificate_urls) parsed = JSON.parse(profile.certificate_urls);
+      if (profile?.cert_url) parsed = JSON.parse(profile.cert_url);
     } catch {
       parsed = [];
     }
 
     const start = Array.isArray(parsed) && parsed.length ? parsed : certificateUrl ? [certificateUrl] : [];
     setCertFiles(start);
-  }, [editOpen, certTouched, profile?.certificate_urls, certificateUrl]);
+  }, [editOpen, certTouched, profile?.cert_url, certificateUrl]);
 
   async function handleLogout() {
     if (loggingOut) return;
@@ -792,7 +944,10 @@ export default function Profile() {
       setSaving(true);
 
       const safePatch = { ...patch };
-      if (!("certificate_urls" in (profile || {}))) delete safePatch.certificate_urls;
+
+      // si por cualquier motivo esa columna no existe en el objeto profile, no la mandamos
+      // (pero ojo: si existe, sí permitimos limpiar)
+      if (!("cert_url" in (profile || {}))) delete safePatch.cert_url;
 
       const updated = await updateMyProfile(user.id, safePatch);
       setProfile?.(updated);
@@ -808,140 +963,144 @@ export default function Profile() {
 
   if (profileLoading && !profile) return <ProfileSkeleton />;
 
-  function openPreviewCertificate() {
-    if (!norm(certificateUrl)) return;
-    setPreviewViewerUrl(certificateUrl);
+  function openPreviewList() {
+    if (!hasPublishedCertificate) return;
+    setCertListOpen(true);
+  }
+
+  function openPreviewCertificate(url, idx = 0) {
+    if (!norm(url)) return;
+    setPreviewViewerUrl(url);
+    setPreviewViewerTitle(`Certificado ${idx + 1}`);
     setPreviewViewerOpen(true);
   }
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
-      <div className="w-full px-6 pt-[40px] pb-6 box-border">
-        {/* ✅ Header tipo “pages principales”: titulo + subtitulo alineados a la izquierda */}
-        <div className="flex items-center justify-between">
-          <div className="min-w-0">
-            <h1 className="text-[22px] font-extrabold text-[#3D3D3D] leading-tight">Perfil</h1>
-            <p className="mt-1 text-[13px] text-black/45 leading-relaxed">
-              Mantené tu perfil actualizado
-            </p>
+      {/* ✅ mobile: padding-top menor + safe areas */}
+      <div className="w-full pt-[28px] xs:pt-[34px] sm:pt-[40px] pb-24 box-border overflow-x-hidden">
+        <div
+          className="mx-auto w-full max-w-[460px] box-border overflow-x-hidden"
+          style={{
+            paddingLeft: "max(14px, env(safe-area-inset-left))",
+            paddingRight: "max(14px, env(safe-area-inset-right))",
+          }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              {/* ✅ mobile: título un toque más chico para pantallas mínimas */}
+              <h1 className="text-[20px] xs:text-[21px] sm:text-[22px] font-extrabold text-[#3D3D3D] leading-tight">
+                Perfil
+              </h1>
+              <p className="mt-1 text-[12px] xs:text-[13px] text-black/45 leading-relaxed">
+                Mantené tu perfil actualizado
+              </p>
+            </div>
+
+            <IconButton
+              onClick={() => {
+                setEditOpen(true);
+                setCertTouched(false);
+              }}
+              title="Editar"
+              disabled={!user?.id}
+            >
+              <IconifyIcon icon="mdi:pencil" className="h-6 w-6 text-black/40" />
+            </IconButton>
           </div>
 
-          <IconButton
-            onClick={() => {
-              setEditOpen(true);
-              setCertTouched(false);
-            }}
-            title="Editar"
-            disabled={!user?.id}
-          >
-            <IconifyIcon icon="mdi:pencil" className="h-6 w-6 text-black/40" />
-          </IconButton>
-        </div>
+          {/* ✅ mobile: padding levemente menor */}
+          <CardShell className="mt-5 p-4 xs:p-5">
+            <div className="flex items-center gap-3 xs:gap-4 min-w-0">
+              {profile?.avatar_url ? (
+                <div className="h-[64px] w-[64px] xs:h-[70px] xs:w-[70px] sm:h-[76px] sm:w-[76px] rounded-[22px] xs:rounded-[24px] sm:rounded-[26px] overflow-hidden bg-black/[0.04] shrink-0">
+                  <img src={profile.avatar_url} alt={fullName || "Perfil"} className="h-full w-full object-cover" />
+                </div>
+              ) : (
+                <InitialsAvatar name={fullName || email} />
+              )}
 
-        {/* Header card (sin icono derecho + sin “verificado” extra) */}
-        <CardShell className="mt-5 p-5">
-          <div className="flex items-center gap-4 min-w-0">
-            {profile?.avatar_url ? (
-              <div className="h-[76px] w-[76px] rounded-[26px] overflow-hidden bg-black/[0.04] shrink-0">
-                <img src={profile.avatar_url} alt={fullName || "Perfil"} className="h-full w-full object-cover" />
-              </div>
-            ) : (
-              <InitialsAvatar name={fullName || email} />
-            )}
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <p className="text-[16px] xs:text-[17px] sm:text-[18px] font-extrabold text-[#3D3D3D] truncate">
+                    {fullName || "Tu perfil"}
+                  </p>
+                  {hasPublishedCertificate ? <VerifiedBadgeIcon className="h-[16px] w-[16px]" /> : null}
+                </div>
 
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <p className="text-[18px] font-extrabold text-[#3D3D3D] truncate">{fullName || "Tu perfil"}</p>
-                {hasPublishedCertificate ? <VerifiedBadgeIcon className="h-[16px] w-[16px]" /> : null}
-              </div>
-
-              <div className="mt-2">
-                <RolePill role="provider" />
+                <div className="mt-2">
+                  <RolePill role="provider" />
+                </div>
               </div>
             </div>
-          </div>
-        </CardShell>
-
-        {/* Info */}
-        <div className="mt-4">
-          <CardShell className="px-5">
-            <InfoRow icon="mdi:account" label="Nombre" value={fullName} />
-            <div className="h-px w-full bg-black/5" />
-            <InfoRow icon="mdi:email-outline" label="Email" value={email} />
-            <div className="h-px w-full bg-black/5" />
-            <InfoRow icon="mdi:map-marker-outline" label="Barrio" value={neighborhood} />
-            <div className="h-px w-full bg-black/5" />
-            <InfoRow icon="mdi:text-long" label="Descripción" value={about || "—"} />
-            <div className="h-px w-full bg-black/5" />
-            <InfoRow
-              icon="mdi:file-certificate-outline"
-              label="Certificaciones"
-              value={hasPublishedCertificate ? "Archivo publicado" : "Sin archivos"}
-              right={
-                hasPublishedCertificate ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-black/[0.04] px-3 py-2 text-[12px] font-semibold text-black/60">
-                    Ver
-                    <IconifyIcon icon="mdi:chevron-right" className="h-5 w-5 text-black/30" />
-                  </span>
-                ) : null
-              }
-              onRightClick={hasPublishedCertificate ? openPreviewCertificate : undefined}
-            />
           </CardShell>
-        </div>
 
-        {/* Accesos */}
-        <div className="mt-4 grid gap-3">
-          <RowButton icon="mdi:calendar-clock" title="Disponibilidad" desc="Definí días, horarios y buffers" onClick={() => nav("/provider/availability")} />
+          <div className="mt-4">
+            {/* ✅ mobile: padding x menor */}
+            <CardShell className="px-4 xs:px-5">
+              <InfoRow icon="mdi:account" label="Nombre" value={fullName} />
+              <div className="h-px w-full bg-black/5" />
+              <InfoRow icon="mdi:email-outline" label="Email" value={email} />
+              <div className="h-px w-full bg-black/5" />
+              <InfoRow icon="mdi:map-marker-outline" label="Barrio" value={neighborhood} />
+              <div className="h-px w-full bg-black/5" />
+              <InfoRow icon="mdi:text-long" label="Descripción" value={about || "—"} />
+              <div className="h-px w-full bg-black/5" />
+              <InfoRow
+                icon="mdi:file-certificate-outline"
+                label="Certificaciones"
+                value={hasPublishedCertificate ? `${publishedCertUrls.length} archivo(s) publicado(s)` : "Sin archivos"}
+                right={
+                  hasPublishedCertificate ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-black/[0.04] px-3 py-2 text-[12px] font-semibold text-black/60">
+                      Ver
+                      <IconifyIcon icon="mdi:chevron-right" className="h-5 w-5 text-black/30" />
+                    </span>
+                  ) : null
+                }
+                onRightClick={hasPublishedCertificate ? openPreviewList : undefined}
+              />
+            </CardShell>
+          </div>
 
-          <RowButton
-            icon="mdi:clipboard-text-outline"
-            title="Solicitudes y turnos"
-            desc="Gestioná tus pedidos y agenda"
-            onClick={() => toast.info("Turnos", "Conectamos esta pantalla cuando terminemos pagos / agenda final.")}
-          />
+          <div className="mt-4 grid gap-3">
+            <RowButton icon="mdi:calendar-clock" title="Disponibilidad" desc="Definí días, horarios y buffers" onClick={() => nav("/provider/availability")} />
+            <RowButton icon="mdi:history" title="Mi historial" desc="Solicitudes completadas" onClick={() => nav("/provider/history")} />
+            <RowButton icon="mdi:star-outline" title="Mis reseñas" desc="Calificaciones y comentarios de clientes" onClick={() => nav("/provider/reviews")} />
+            <RowButton icon="mdi:shield-outline" title="Privacidad y términos" desc="Información legal de la app" onClick={() => nav("/provider/legal")} />
+          </div>
 
-          <RowButton
-            icon="mdi:cash-multiple"
-            title="Cobros / Depósitos"
-            desc="Elegí a dónde querés que se te deposite"
-            onClick={() => toast.info("Cobros", "Esto va con Pagos: lo hacemos en el próximo paso.")}
-          />
-
-          <RowButton
-            icon="mdi:star-outline"
-            title="Mis reseñas"
-            desc="Calificaciones y comentarios de clientes"
-            onClick={() => toast.info("Reseñas", "Luego armamos esta pantalla con las reviews recibidas.")}
-          />
-
-          <RowButton
-            icon="mdi:shield-outline"
-            title="Privacidad y términos"
-            desc="Información legal de la app"
-            onClick={() => toast.info("Legal", "Luego sumamos la pantalla legal.")}
-          />
-        </div>
-
-        {/* Logout */}
-        <div className="mt-4">
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={loggingOut}
-            className={[
-              "w-full rounded-full py-3 font-semibold transition active:scale-[0.99]",
-              "bg-white border border-black/10 text-[#3D3D3D]",
-              "shadow-[0_8px_18px_rgba(0,0,0,0.06)]",
-              loggingOut ? "opacity-60" : "",
-            ].join(" ")}
-          >
-            {loggingOut ? "Cerrando sesión…" : "Cerrar sesión"}
-          </button>
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className={[
+                "w-full rounded-full py-3 font-semibold transition active:scale-[0.99] box-border",
+                "bg-white border border-black/10 text-[#3D3D3D]",
+                "shadow-[0_8px_18px_rgba(0,0,0,0.06)]",
+                loggingOut ? "opacity-60" : "",
+              ].join(" ")}
+            >
+              {loggingOut ? "Cerrando sesión…" : "Cerrar sesión"}
+            </button>
+          </div>
         </div>
       </div>
 
-      <ViewerModal open={previewViewerOpen} onClose={() => setPreviewViewerOpen(false)} title="Certificado" url={previewViewerUrl} />
+      {/* ✅ Lista de certificados */}
+      <CertListModal
+        open={certListOpen}
+        onClose={() => setCertListOpen(false)}
+        urls={publishedCertUrls}
+        onOpenUrl={(u, idx) => {
+          setCertListOpen(false);
+          openPreviewCertificate(u, idx);
+        }}
+      />
+
+      {/* ✅ Viewer (se abre por el seleccionado) */}
+      <ViewerModal open={previewViewerOpen} onClose={() => setPreviewViewerOpen(false)} title={previewViewerTitle} url={previewViewerUrl} />
 
       <EditProfileModal
         open={editOpen}
@@ -953,6 +1112,7 @@ export default function Profile() {
         certFiles={certFiles}
         setCertFiles={setCertFiles}
         setCertTouched={setCertTouched}
+        onPersistCerts={persistCerts}
       />
     </div>
   );

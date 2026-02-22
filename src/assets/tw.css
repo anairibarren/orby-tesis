@@ -8,6 +8,12 @@
   font-family: 'Poppins', sans-serif;
 }
 
+html, body, #root {
+  height: 100%;
+  background: #F5F5F5;
+}
+
+
 /* inicio de sesion */
 @keyframes slideUp {
   0% {
@@ -121,4 +127,27 @@
 .no-scrollbar {
   -ms-overflow-style: none; /* IE/Edge */
   scrollbar-width: none; /* Firefox */
+}
+
+/* Quitar celeste de autofill (Chrome/Safari) y respetar el gris del input */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: #3d3d3d;
+  -webkit-box-shadow: 0 0 0px 1000px #F5F5F5 inset;
+  box-shadow: 0 0 0px 1000px #F5F5F5 inset;
+  transition: background-color 999999s ease-in-out 0s;
+}
+
+
+/* Si queda seleccionado el texto, que no se vea celeste fuerte */
+input::selection,
+textarea::selection {
+  background: rgba(30, 47, 93, 0.18);
 }

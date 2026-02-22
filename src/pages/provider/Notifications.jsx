@@ -120,8 +120,12 @@ function splitWhenAndDescription(body) {
   return { whenLine: "", descLine: s };
 }
 
-function getNotiUI(n) {
+  function getNotiUI(n) {
   const type = String(n?.type || "").toLowerCase();
+
+  if (type === "appointment_reminder") {
+    return { icon: "mdi:clock-alert-outline", bg: ICON_BG_BLUE, fg: ICON_FG_BLUE };
+  }
 
   if (type.includes("cancel")) {
     return { icon: "mdi:calendar-remove-outline", bg: ICON_BG_RED, fg: ICON_FG_RED };
@@ -390,8 +394,35 @@ export default function ProviderNotifications() {
       if (!n.is_read) await markNotificationRead(n.id, true);
 
       const rid = n?.metadata?.request_id;
+      const type = String(n?.type || "").toLowerCase();
 
-      // ✅ si no existe / no hay permisos => mensaje y NO navegamos
+      // ✅ NUEVO: si es mensaje nuevo -> ir directo al chat
+      if (type === "message_new" && rid) {
+        const ok = await requestExistsForMe(rid);
+        if (!ok) {
+          toast.warning("Solicitud no disponible", "La solicitud ya no existe o no tenés permisos para verla.");
+          refresh({ silent: true });
+          return;
+        }
+        nav(`/provider/requests/${rid}/chat`);
+        refresh({ silent: true });
+        return;
+      }
+
+      // ✅ NUEVO: recordatorio de turno -> ir al detalle de la solicitud
+      if (type === "appointment_reminder" && rid) {
+        const ok = await requestExistsForMe(rid);
+        if (!ok) {
+          toast.warning("Solicitud no disponible", "La solicitud ya no existe o no tenés permisos para verla.");
+          refresh({ silent: true });
+          return;
+        }
+        nav(`/provider/requests/${rid}`);
+        refresh({ silent: true });
+        return;
+      }
+
+      // tu flujo actual: ir al detalle si tiene rid
       if (rid) {
         const ok = await requestExistsForMe(rid);
         if (!ok) {
@@ -407,6 +438,26 @@ export default function ProviderNotifications() {
       toast.error("Error", e?.message || "No se pudo abrir/marcar como leída.");
     }
   }
+
+  // marcar todas como leídas
+  async function markAllAsRead() {
+    try {
+      const unread = (items || []).filter((n) => !n.is_read);
+      if (unread.length === 0) return;
+
+      // Optimista: UI al toque
+      setItems((prev) => (prev || []).map((n) => ({ ...n, is_read: true })));
+
+      // DB
+      await Promise.allSettled(unread.map((n) => markNotificationRead(n.id, true)));
+
+      refresh({ silent: true });
+    } catch (e) {
+      toast.error("Error", e?.message || "No se pudieron marcar como leídas.");
+      refresh({ silent: true });
+    }
+  }
+
 
   async function deleteNotification(n) {
     try {
@@ -472,14 +523,15 @@ export default function ProviderNotifications() {
             <h1 className="text-[18px] font-extrabold text-[#3D3D3D]">Notificaciones</h1>
 
             {unreadCount > 0 && (
-              <span
-                className="min-w-[22px] h-[22px] px-2 rounded-full text-[12px] font-extrabold grid place-items-center text-white"
-                style={{ background: BLUE }}
-                aria-label={`${unreadCount} no leídas`}
-                title={`${unreadCount} no leídas`}
+              <button
+                type="button"
+                onClick={markAllAsRead}
+                className="absolute right-0 h-11 w-11 rounded-full bg-white border border-black/10 shadow-[0_4px_10px_rgba(0,0,0,0.06)] grid place-items-center active:scale-[0.98] transition"
+                aria-label="Marcar todas como leídas"
+                title="Marcar todas como leídas"
               >
-                {unreadCount}
-              </span>
+              <IconifyIcon icon="lucide:clipboard-check" className="h-5 w-5 text-black/60" />
+            </button>
             )}
           </div>
         </div>

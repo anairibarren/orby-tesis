@@ -1,44 +1,126 @@
+// src/pages/auth/Welcome.jsx
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import logo from "../../assets/img/logo-claro.png";
 
 export default function Welcome() {
-  return (
-    <div className="min-h-screen bg-[#F4EFEB]">
-      <div className="mx-auto w-full max-w-sm px-6 py-10">
-        {/* Marca */}
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-2xl bg-[#1E2F5D]" />
-          <span className="text-sm font-semibold text-[#1E2F5D]">orby</span>
+  // ✅ PWA install
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [canInstall, setCanInstall] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    // detectar si ya está instalada (PWA)
+    const checkInstalled = () => {
+      const standalone =
+        window.matchMedia?.("(display-mode: standalone)")?.matches ||
+        window.navigator?.standalone === true; // iOS
+      setIsInstalled(!!standalone);
+    };
+
+    checkInstalled();
+
+    const onBeforeInstallPrompt = (e) => {
+      // Chrome/Edge/Android
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setCanInstall(true);
+    };
+
+    const onAppInstalled = () => {
+      setIsInstalled(true);
+      setCanInstall(false);
+      setDeferredPrompt(null);
+    };
+
+    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+    window.addEventListener("appinstalled", onAppInstalled);
+
+    // por si cambia display-mode
+    const mql = window.matchMedia?.("(display-mode: standalone)");
+    const onMqlChange = () => checkInstalled();
+    mql?.addEventListener?.("change", onMqlChange);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", onAppInstalled);
+      mql?.removeEventListener?.("change", onMqlChange);
+    };
+  }, []);
+
+  async function handleInstall() {
+    try {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice; // accepted / dismissed
+      setDeferredPrompt(null);
+      setCanInstall(false);
+    } catch {
+      // no-op
+    }
+  }
+
+    return (
+    <div className="min-h-screen px-6 relative overflow-hidden bg-[#1E2F5D]">
+      <div
+        className="min-h-screen relative"
+        style={{
+          paddingTop: "max(18px, env(safe-area-inset-top))",
+          paddingBottom: "max(24px, env(safe-area-inset-bottom))",
+        }}
+      >
+        {/* logo arriba */}
+        <div className="absolute left-1/2 top-[max(28px,env(safe-area-inset-top))] -translate-x-1/2">
+          <img
+            src={logo}
+            alt="orby"
+            className="h-10 w-auto select-none opacity-95"
+            draggable="false"
+          />
         </div>
 
-        {/* Título */}
-        <h1 className="mt-8 text-[34px] leading-[1.08] font-semibold tracking-tight text-[#1E2F5D]">
-          Bienvenido/a
-        </h1>
-        <p className="mt-2 text-sm text-black/60 leading-relaxed">
-          Iniciá sesión o creá tu cuenta para continuar.
-        </p>
+        {/* contenido centrado */}
+        <div className="min-h-screen flex flex-col items-center justify-center">
+          <div className="w-full max-w-sm text-center">
+            <h1 className="text-[34px] leading-[1.06] font-extrabold tracking-tight text-white">
+              Bienvenido
+            </h1>
 
-        {/* Card acciones */}
-        <div className="mt-10 rounded-[28px] bg-white border border-black/5 shadow-[0_10px_25px_rgba(0,0,0,0.06)] p-5">
-          <div className="flex flex-col gap-3">
-            <Link
-              to="/login"
-              className="w-full rounded-full bg-[#1E2F5D] py-3.5 text-center text-white font-semibold active:scale-[0.99] transition"
-            >
-              Iniciar sesión
-            </Link>
+            <p className="mt-3 text-[13px] text-white/70 leading-relaxed">
+              Iniciá sesión o creá tu cuenta para continuar.
+            </p>
 
-            <Link
-              to="/role-choice"
-              className="w-full rounded-full border border-black/10 bg-white py-3.5 text-center font-semibold text-[#1E2F5D] active:scale-[0.99] transition"
-            >
-              Crear cuenta
-            </Link>
+            <div className="mt-10 grid gap-3">
+              <Link
+                to="/login"
+                className="w-full h-[54px] rounded-full bg-white text-[#1E2F5D] font-extrabold grid place-items-center
+                           shadow-[0_18px_45px_rgba(0,0,0,0.18)] active:scale-[0.99] transition"
+              >
+                Iniciar sesión
+              </Link>
+
+              <Link
+                to="/register"
+                className="w-full h-[54px] rounded-full bg-white/10 text-white font-extrabold grid place-items-center
+                           border border-white/20 shadow-[0_14px_36px_rgba(0,0,0,0.16)] active:scale-[0.99] transition"
+              >
+                Crear cuenta
+              </Link>
+
+              {/* ✅ Botón instalar (solo si está disponible y no está instalada) */}
+              {!isInstalled && canInstall && (
+                <button
+                  type="button"
+                  onClick={handleInstall}
+                  className="mt-4 mx-auto block text-[12px] text-white/70 font-normal
+                            hover:text-white/90 underline underline-offset-4 decoration-white/25
+                            active:scale-[0.99] transition"
+                >
+                  Descargar app
+                </button>
+              )}
+            </div>
           </div>
-
-          <p className="mt-5 text-center text-xs text-black/40">
-            Al continuar aceptás nuestros términos y políticas.
-          </p>
         </div>
       </div>
     </div>

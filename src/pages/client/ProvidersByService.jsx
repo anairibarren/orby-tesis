@@ -63,7 +63,9 @@ function Sheet({ open, onClose, children }) {
     <AnimatePresence>
       {open && (
         <motion.div className="fixed inset-0 z-[9999]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          {/* ✅ solo cerrar tocando fuera */}
           <button type="button" className="absolute inset-0 bg-black/40" onClick={onClose} aria-label="Cerrar" />
+
           <motion.div
             className="absolute left-0 right-0 bottom-0"
             initial={{ y: 40, opacity: 0 }}
@@ -71,7 +73,8 @@ function Sheet({ open, onClose, children }) {
             exit={{ y: 40, opacity: 0 }}
             transition={{ type: "spring", stiffness: 380, damping: 34 }}
           >
-            <div className="mx-auto w-full max-w-[520px] px-4 pb-6">
+            {/* ✅ evita que el click dentro cierre */}
+            <div className="mx-auto w-full max-w-[520px] px-4 pb-6" onClick={(e) => e.stopPropagation()}>
               <div className="rounded-[28px] bg-white shadow-2xl overflow-hidden">{children}</div>
             </div>
           </motion.div>
@@ -116,10 +119,8 @@ export default function ProvidersByService() {
   const [items, setItems] = useState([]);
   const [err, setErr] = useState("");
 
-  // ✅ NUEVO: ratings map
   const [ratingsByProvider, setRatingsByProvider] = useState({}); // { [provider_id]: { avg, count } }
 
-  // filtros
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [onlyVerified, setOnlyVerified] = useState(false);
   const [zone, setZone] = useState("all");
@@ -138,7 +139,6 @@ export default function ProvidersByService() {
         const arr = data || [];
         setItems(arr);
 
-        // ✅ NUEVO: traer ratings por provider_id desde DB (reviews)
         try {
           const providerIds = Array.from(
             new Set(
@@ -151,11 +151,7 @@ export default function ProvidersByService() {
           if (!providerIds.length) {
             setRatingsByProvider({});
           } else {
-            const { data: rows, error } = await supabase
-              .from("reviews")
-              .select("provider_id, rating")
-              .in("provider_id", providerIds);
-
+            const { data: rows, error } = await supabase.from("reviews").select("provider_id, rating").in("provider_id", providerIds);
             if (error) throw error;
 
             const acc = {};
@@ -255,9 +251,9 @@ export default function ProvidersByService() {
     return arr;
   }, [items, q, onlyVerified, zone, sort]);
 
+  // ✅ flecha “esta misma” + volver siempre atrás
   function goBack() {
-    if (window.history.length > 1) nav(-1);
-    else nav("/client", { replace: true, state: { disableHomeShared: true } });
+    nav(-1);
   }
 
   function goProfile(providerServiceId) {
@@ -273,9 +269,17 @@ export default function ProvidersByService() {
       <div className="w-full px-6 pt-[40px] pb-6 box-border">
         {/* Top bar */}
         <div className="flex items-center gap-3 w-full overflow-visible">
-          <IconButton onClick={goBack} title="Volver">
-            <IconifyIcon icon="mdi:chevron-left" className="h-7 w-7 text-black/60" />
-          </IconButton>
+          {/* ✅ CAMBIO: flecha */}
+          <button
+            type="button"
+            onClick={goBack}
+            className="h-11 w-11 rounded-full bg-white shadow-[0_4px_4.8px_rgba(0,0,0,0.06)] grid place-items-center shrink-0 active:scale-[0.98] transition"
+            aria-label="Volver"
+            title="Volver"
+          >
+            <span className="text-xl leading-none">‹</span>
+          </button>
+
 
           <div className="flex-1 min-w-0 rounded-full bg-white shadow-[0_6px_18px_rgba(0,0,0,0.08)] px-4 py-3 flex items-center gap-2">
             <IconifyIcon icon="mdi:magnify" className="h-5 w-5 text-black/35 shrink-0" />
@@ -327,13 +331,11 @@ export default function ProvidersByService() {
 
               const avatar = prov?.avatar_url;
 
-              // ✅ NUEVO: rating real desde DB
               const pid = prov?.id || o?.provider_id || null;
               const ratingObj = pid ? ratingsByProvider[pid] : null;
               const rating = ratingObj?.avg != null ? Number(ratingObj.avg) : null;
               const ratingCount = ratingObj?.count ?? null;
 
-              // ✅ SOLO certificación => badge
               const verified = hasCertification(prov);
 
               return (
@@ -384,12 +386,15 @@ export default function ProvidersByService() {
             })}
 
             {filteredItems.length === 0 && (
-              <div className="mt-3 rounded-[24px] bg-white shadow-[0_12px_26px_rgba(0,0,0,0.08)] p-6 text-center">
-                <div className="mx-auto h-12 w-12 rounded-full bg-black/[0.04] grid place-items-center">
-                  <IconifyIcon icon="mdi:account-search-outline" className="h-7 w-7 text-black/35" />
+              <div className="min-h-[55vh] w-full flex flex-col items-center justify-center text-center">
+                <div className="mx-auto h-14 w-14 rounded-[18px] bg-black/[0.04] grid place-items-center">
+                  <IconifyIcon icon="mdi:account-search-outline" className="h-8 w-8 text-black/35" />
                 </div>
-                <p className="mt-3 text-[14px] font-extrabold text-[#3D3D3D]">Sin resultados</p>
-                <p className="mt-1 text-[12px] text-black/50">No hay prestadores activos para este servicio con los filtros actuales.</p>
+
+                <p className="mt-4 text-[15px] font-extrabold text-[#3D3D3D]">Sin resultados</p>
+                <p className="mt-2 max-w-[320px] text-[12px] leading-relaxed text-black/45">
+                  No hay prestadores activos para este servicio con los filtros actuales.
+                </p>
               </div>
             )}
           </div>
@@ -403,22 +408,14 @@ export default function ProvidersByService() {
         </div>
 
         <div className="px-6 pt-5 pb-4">
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setFiltersOpen(false)}
-              className="h-11 w-11 rounded-full bg-black/[0.04] grid place-items-center"
-              aria-label="Cerrar"
-              title="Cerrar"
-            >
-              <IconifyIcon icon="mdi:close" className="h-6 w-6 text-black/45" />
-            </button>
-
-            <div className="text-center">
+          {/* ✅ CAMBIO: alineado a la izquierda + sin cruz */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="text-left">
               <h3 className="text-[20px] font-extrabold text-[#3D3D3D]">Filtros</h3>
               <p className="mt-1 text-[12px] text-black/45">Ajustá la lista de prestadores.</p>
             </div>
 
+            {/* ✅ CAMBIO: Reset -> Resetear */}
             <button
               type="button"
               onClick={() => {
@@ -428,7 +425,7 @@ export default function ProvidersByService() {
               }}
               className="text-[12px] font-semibold text-black/45"
             >
-              Reset
+              Resetear
             </button>
           </div>
         </div>
