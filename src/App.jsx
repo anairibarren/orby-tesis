@@ -4,7 +4,6 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 
 // components
-import Loading from "./components/Loading";
 import OfflineOverlay from "./components/OfflineOverlay";
 import SplashScreen from "./components/SplashScreen";
 
@@ -45,8 +44,9 @@ import ProviderNotifications from "./pages/provider/Notifications";
 
 export default function App() {
   const { loading, user, role, profileLoading } = useAuth();
+  const location = useLocation();
 
-    const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     const stillLoading = loading || (user && profileLoading);
@@ -61,200 +61,246 @@ export default function App() {
     return () => clearTimeout(t);
   }, [loading, profileLoading, user]);
 
+  // ✅ Body background switch:
+  // - Azul SOLO en: Auth + Home (client/provider) + Splash
+  // - Gris en el resto
+  useEffect(() => {
+    const p = location.pathname;
+
+    // ✅ Auth routes (todas azules)
+    const isAuth =
+      p === "/" ||
+      p === "/login" ||
+      p === "/register" ||
+      p.startsWith("/register/") ||
+      p === "/forgot-password" ||
+      p === "/reset-password";
+
+    // ✅ SOLO home exacto (no todo /client/*)
+    const isClientHome = p === "/client" || p === "/client/";
+    const isProviderHome = p === "/provider" || p === "/provider/";
+
+    const shouldBeBlue = showSplash || isAuth || isClientHome || isProviderHome;
+
+    document.body.classList.toggle("bg-orby", shouldBeBlue);
+
+    return () => {
+      document.body.classList.remove("bg-orby");
+    };
+  }, [location.pathname, showSplash]);
+
   if (showSplash) return <SplashScreen />;
 
   return (
     <>
       <OfflineOverlay />
-    <Routes>
-      {/* Home */}
-      <Route
-        path="/"
-        element={
-          !user ? (
-            <Welcome />
-          ) : !role ? (
-            <Navigate to="/register" replace />
-          ) : (
-            <RoleRedirect role={role} />
-          )
-        }
-      />
 
-      {/* Auth */}
-      <Route
-        path="/login"
-        element={
-          <RequireGuest user={user} role={role}>
-            <Login />
-          </RequireGuest>
-        }
-      />
-      <Route path="/register" element={<RoleChoice />} />
-      <Route
-        path="/register/account"
-        element={
-          <RequireGuest user={user} role={role}>
-            <RegisterAccount />
-          </RequireGuest>
-        }
-      />
-      
+      <Routes>
+        {/* Home */}
+        <Route
+          path="/"
+          element={
+            !user ? (
+              <Welcome />
+            ) : !role ? (
+              <Navigate to="/register" replace />
+            ) : (
+              <RoleRedirect role={role} />
+            )
+          }
+        />
 
-      {/* ✅ Forgot / Reset password */}
-      <Route
-        path="/forgot-password"
-        element={
-          <RequireGuest user={user} role={role}>
-            <ForgotPassword />
-          </RequireGuest>
-        }
-      />
-      <Route
-        path="/reset-password"
-        element={
-          <RequireGuest user={user} role={role}>
-            <ResetPassword />
-          </RequireGuest>
-        }
-      />
+        {/* Auth */}
+        <Route
+          path="/login"
+          element={
+            <RequireGuest user={user} role={role}>
+              <Login />
+            </RequireGuest>
+          }
+        />
+        <Route path="/register" element={<RoleChoice />} />
+        <Route
+          path="/register/account"
+          element={
+            <RequireGuest user={user} role={role}>
+              <RegisterAccount />
+            </RequireGuest>
+          }
+        />
 
-      <Route
-        path="/register/provider/last-step"
-        element={
-          <RequireAuth user={user}>
-            <ProviderLastStep />
-          </RequireAuth>
-        }
-      />
+        {/* ✅ Forgot / Reset password */}
+        <Route
+          path="/forgot-password"
+          element={
+            <RequireGuest user={user} role={role}>
+              <ForgotPassword />
+            </RequireGuest>
+          }
+        />
+        <Route
+          path="/reset-password"
+          element={
+            <RequireGuest user={user} role={role}>
+              <ResetPassword />
+            </RequireGuest>
+          }
+        />
 
-      <Route
-        path="/register/provider/profile"
-        element={
-          <RequireAuth user={user} role={role} allow={["provider"]} requireRole>
-            <ProviderProfileSetup />
-          </RequireAuth>
-        }
-      />
+        <Route
+          path="/register/provider/last-step"
+          element={
+            <RequireAuth user={user}>
+              <ProviderLastStep />
+            </RequireAuth>
+          }
+        />
 
-      {/* Details */}
-      <Route
-        path="/provider/requests/:requestId"
-        element={
-          <RequireAuth user={user} role={role} allow={["provider"]} requireRole>
-            <ProviderRequestDetail />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/client/requests/:requestId"
-        element={
-          <RequireAuth user={user} role={role} allow={["client"]} requireRole>
-            <ClientRequestDetail />
-          </RequireAuth>
-        }
-      />
+        <Route
+          path="/register/provider/profile"
+          element={
+            <RequireAuth user={user} role={role} allow={["provider"]} requireRole>
+              <ProviderProfileSetup />
+            </RequireAuth>
+          }
+        />
 
-      {/* ✅ FLOW */}
-      <Route
-        path="/client/services/:id/request"
-        element={
-          <RequireAuth user={user} role={role} allow={["client"]} requireRole>
-            <ClientRequestForm />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/client/services/:id/schedule"
-        element={
-          <RequireAuth user={user} role={role} allow={["client"]} requireRole>
-            <ClientSchedule />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/client/services/:id/success"
-        element={
-          <RequireAuth user={user} role={role} allow={["client"]} requireRole>
-            <ClientRequestSuccess />
-          </RequireAuth>
-        }
-      />
+        {/* Details */}
+        <Route
+          path="/provider/requests/:requestId"
+          element={
+            <RequireAuth user={user} role={role} allow={["provider"]} requireRole>
+              <ProviderRequestDetail />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/client/requests/:requestId"
+          element={
+            <RequireAuth user={user} role={role} allow={["client"]} requireRole>
+              <ClientRequestDetail />
+            </RequireAuth>
+          }
+        />
 
-      {/* Providers list + profile */}
-      <Route
-        path="/client/services/catalog/:catalogId/providers"
-        element={
-          <RequireAuth user={user} role={role} allow={["client"]} requireRole>
-            <ProvidersByService />
-          </RequireAuth>
-        }
-      />
+        {/* ✅ FLOW */}
+        <Route
+          path="/client/services/:id/request"
+          element={
+            <RequireAuth user={user} role={role} allow={["client"]} requireRole>
+              <ClientRequestForm />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/client/services/:id/schedule"
+          element={
+            <RequireAuth user={user} role={role} allow={["client"]} requireRole>
+              <ClientSchedule />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/client/services/:id/success"
+          element={
+            <RequireAuth user={user} role={role} allow={["client"]} requireRole>
+              <ClientRequestSuccess />
+            </RequireAuth>
+          }
+        />
 
-      {/* ✅ rutas alias */}
-      <Route
-        path="/client/provider/:providerServiceId"
-        element={
-          <RequireAuth user={user} role={role} allow={["client"]} requireRole>
-            <ProviderProfile />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/client/providers/:providerServiceId"
-        element={
-          <RequireAuth user={user} role={role} allow={["client"]} requireRole>
-            <ProviderProfile />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/client/provider-service/:providerServiceId"
-        element={
-          <RequireAuth user={user} role={role} allow={["client"]} requireRole>
-            <ProviderProfile />
-          </RequireAuth>
-        }
-      />
+        {/* Providers list + profile */}
+        <Route
+          path="/client/services/catalog/:catalogId/providers"
+          element={
+            <RequireAuth user={user} role={role} allow={["client"]} requireRole>
+              <ProvidersByService />
+            </RequireAuth>
+          }
+        />
 
-      {/* Favorites */}
-      <Route
-        path="/client/favorites"
-        element={
-          <RequireAuth user={user} role={role} allow={["client"]} requireRole>
-            <Favorites />
-          </RequireAuth>
-        }
-      />
+        {/* ✅ rutas alias */}
+        <Route
+          path="/client/provider/:providerServiceId"
+          element={
+            <RequireAuth user={user} role={role} allow={["client"]} requireRole>
+              <ProviderProfile />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/client/providers/:providerServiceId"
+          element={
+            <RequireAuth user={user} role={role} allow={["client"]} requireRole>
+              <ProviderProfile />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/client/provider-service/:providerServiceId"
+          element={
+            <RequireAuth user={user} role={role} allow={["client"]} requireRole>
+              <ProviderProfile />
+            </RequireAuth>
+          }
+        />
 
-      {/* Layout routes */}
-      <Route
-        path="/client/*"
-        element={
-          <RequireAuth user={user} role={role} allow={["client"]} requireRole>
-            <ClientLayout />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/provider/*"
-        element={
-          <RequireAuth user={user} role={role} allow={["provider"]} requireRole>
-            <ProviderLayout />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/admin/*"
-        element={
-          <RequireAuth user={user} role={role} allow={["admin"]} requireRole>
-            <AdminLayout />
-          </RequireAuth>
-        }
-      />
+        {/* Favorites */}
+        <Route
+          path="/client/favorites"
+          element={
+            <RequireAuth user={user} role={role} allow={["client"]} requireRole>
+              <Favorites />
+            </RequireAuth>
+          }
+        />
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* ✅ Notificaciones (si las usás directo por acá) */}
+        <Route
+          path="/client/notifications"
+          element={
+            <RequireAuth user={user} role={role} allow={["client"]} requireRole>
+              <ClientNotifications />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/provider/notifications"
+          element={
+            <RequireAuth user={user} role={role} allow={["provider"]} requireRole>
+              <ProviderNotifications />
+            </RequireAuth>
+          }
+        />
+
+        {/* Layout routes */}
+        <Route
+          path="/client/*"
+          element={
+            <RequireAuth user={user} role={role} allow={["client"]} requireRole>
+              <ClientLayout />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/provider/*"
+          element={
+            <RequireAuth user={user} role={role} allow={["provider"]} requireRole>
+              <ProviderLayout />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/*"
+          element={
+            <RequireAuth user={user} role={role} allow={["admin"]} requireRole>
+              <AdminLayout />
+            </RequireAuth>
+          }
+        />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </>
   );
 }
@@ -281,7 +327,7 @@ function RequireAuth({ user, role, allow, children, requireRole = false }) {
 
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   if (requireRole && !role) return <Navigate to="/register" replace />;
-  if (role && !allow.includes(role)) return <Navigate to="/" replace />;
+  if (role && allow && !allow.includes(role)) return <Navigate to="/" replace />;
 
   return children;
 }

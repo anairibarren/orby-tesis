@@ -37,6 +37,7 @@ export default function Welcome() {
     window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
     window.addEventListener("appinstalled", onAppInstalled);
 
+    // por si cambia display-mode
     const mql = window.matchMedia?.("(display-mode: standalone)");
     const onMqlChange = () => checkInstalled();
     mql?.addEventListener?.("change", onMqlChange);
@@ -52,7 +53,7 @@ export default function Welcome() {
     try {
       if (!deferredPrompt) return;
       deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
+      await deferredPrompt.userChoice; // accepted / dismissed
       setDeferredPrompt(null);
       setCanInstall(false);
     } catch {
@@ -60,11 +61,10 @@ export default function Welcome() {
     }
   }
 
-  return (
-    <div className="min-h-[100dvh] bg-[#1E2F5D] overflow-hidden">
-      {/* ✅ Un solo contenedor “full” con safe-areas */}
+    return (
+    <div className="min-h-screen px-6 relative overflow-hidden bg-[#1E2F5D]">
       <div
-        className="min-h-[100dvh] px-6 relative flex flex-col"
+        className="min-h-screen relative"
         style={{
           paddingTop: "max(18px, env(safe-area-inset-top))",
           paddingBottom: "max(24px, env(safe-area-inset-bottom))",
@@ -80,8 +80,8 @@ export default function Welcome() {
           />
         </div>
 
-        {/* contenido centrado (usa flex-1 real, no min-h-screen) */}
-        <div className="flex-1 flex items-center justify-center">
+        {/* contenido centrado */}
+        <div className="min-h-screen flex flex-col items-center justify-center">
           <div className="w-full max-w-sm text-center">
             <h1 className="text-[34px] leading-[1.06] font-extrabold tracking-tight text-white">
               Bienvenido
@@ -107,7 +107,8 @@ export default function Welcome() {
               >
                 Crear cuenta
               </Link>
-              <InstallPWAButton />
+
+          <InstallPWAButton />
             </div>
           </div>
         </div>
