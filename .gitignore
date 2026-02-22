@@ -1,9 +1,40 @@
-# Dependencias
+# Dependencies
 node_modules/
 
-# Variables de entorno
-.env
-
-# Archivos de build
+# Build outputs
 dist/
 build/
+dev-dist/
+.vite/
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+
+# Supabase local
+supabase/.temp/
+supabase/.branches/
+
+# Workbox / PWA (si te genera archivos)
+**/sw.js.map
+**/workbox-*.js
+**/workbox-*.js.map

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import logo from "../../assets/img/logo-claro.png";
+import InstallPWAButton from "../../components/InstallPWAButton";
 
 export default function Welcome() {
   // ✅ PWA install
@@ -107,18 +108,7 @@ export default function Welcome() {
                 Crear cuenta
               </Link>
 
-              {/* ✅ Botón instalar (solo si está disponible y no está instalada) */}
-              {!isInstalled && canInstall && (
-                <button
-                  type="button"
-                  onClick={handleInstall}
-                  className="mt-4 mx-auto block text-[12px] text-white/70 font-normal
-                            hover:text-white/90 underline underline-offset-4 decoration-white/25
-                            active:scale-[0.99] transition"
-                >
-                  Descargar app
-                </button>
-              )}
+          <InstallPWAButton />
             </div>
           </div>
         </div>
