@@ -1,3 +1,4 @@
+// src/components/InstallPWAButton.jsx
 import { useEffect, useMemo, useState } from "react";
 
 function isIOS() {
@@ -34,8 +35,6 @@ export default function InstallPWAButton() {
     const onBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      // debug útil:
-      // console.log("beforeinstallprompt fired");
     };
 
     const onAppInstalled = () => {
@@ -54,7 +53,7 @@ export default function InstallPWAButton() {
 
   if (standalone) return null;
 
-  const commonBtnStyle = {
+  const btnStyle = {
     width: "100%",
     padding: "12px 14px",
     borderRadius: 14,
@@ -71,10 +70,10 @@ export default function InstallPWAButton() {
           type="button"
           onClick={() =>
             alert(
-              "En iPhone se instala así:\n\n1) Tocá Compartir (⬆️)\n2) Elegí “Agregar a pantalla de inicio”\n3) Confirmá “Agregar”"
+              "En iPhone se instala asi:\n\n1) Äpretá Compartir (⬆️)\n2) Elegí “Agregar a pantalla de inicio”\n3) Confirmá “Agregar”"
             )
           }
-          style={commonBtnStyle}
+          style={btnStyle}
         >
           Descargar app (iPhone)
         </button>
@@ -82,7 +81,7 @@ export default function InstallPWAButton() {
     );
   }
 
-  // Android/Chrome: si tenemos prompt -> instalamos “directo”
+  // ✅ Android/Chrome: si hay prompt -> instalar directo
   if (deferredPrompt) {
     return (
       <div style={{ marginTop: 12 }}>
@@ -96,7 +95,7 @@ export default function InstallPWAButton() {
               setDeferredPrompt(null);
             }
           }}
-          style={commonBtnStyle}
+          style={btnStyle}
         >
           Descargar app
         </button>
@@ -104,7 +103,7 @@ export default function InstallPWAButton() {
     );
   }
 
-  // ✅ Fallback Android: mostrar guía (porque Chrome a veces no da beforeinstallprompt)
+  // ✅ Fallback Android: siempre mostrar CTA con guía (porque Chrome a veces no dispara beforeinstallprompt)
   if (android) {
     return (
       <div style={{ marginTop: 12 }}>
@@ -112,10 +111,10 @@ export default function InstallPWAButton() {
           type="button"
           onClick={() =>
             alert(
-              "Para instalar en Android:\n\n1) Tocá los 3 puntitos (⋮)\n2) Elegí “Instalar app” o “Agregar a pantalla principal”\n3) Confirmá"
+              "Para instalar en Android:\n\n1) Tocá los 3 puntitos (⋮)\n2) Elegí “Instalar app”\n3) Confirmá"
             )
           }
-          style={commonBtnStyle}
+          style={btnStyle}
         >
           Descargar app (Android)
         </button>
@@ -123,6 +122,5 @@ export default function InstallPWAButton() {
     );
   }
 
-  // Otros casos: no mostramos nada
   return null;
 }

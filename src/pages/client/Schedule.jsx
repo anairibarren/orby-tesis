@@ -874,15 +874,20 @@ export default function ClientSchedule() {
                       <button
                         key={`${selectedDate}-${s.start}`}
                         type="button"
+                        disabled={visualDisabled}   
                         onClick={() => {
                           if (isTaken) return toast.warning("Ocupado", "Ese horario ya se ocupó. Elegí otro.");
                           if (isPast) return toast.warning("No válido", "Ese horario ya pasó. Elegí otro.");
                           setSelectedTime(s.start);
                         }}
                         className={[
-                          "rounded-full px-3 py-2 text-xs transition border",
-                          active ? "bg-[#1E2F5D] text-white font-semibold border-[#1E2F5D]" : "bg-white text-black/70 border-black/10",
-                          visualDisabled ? "opacity-50 cursor-not-allowed" : "active:scale-[0.99] hover:bg-black/[0.02]",
+                          "rounded-full px-3 py-2 text-xs transition border select-none",
+                        active
+                          ? "bg-[#1E2F5D] text-white font-semibold border-[#1E2F5D] hover:bg-[#1E2F5D] hover:text-white"
+                          : "bg-white text-black/70 border-black/10 hover:bg-black/[0.02]",
+                          visualDisabled
+                            ? "opacity-50 cursor-not-allowed"
+                            : "active:scale-[0.99]",
                         ].join(" ")}
                         aria-disabled={visualDisabled}
                         title={isTaken ? "Ocupado" : isPast ? "Ya pasó" : `${s.start}–${s.end}`}

@@ -228,8 +228,8 @@ function FilterChip({ active, label, count, onClick }) {
       className={[
         "flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-semibold transition active:scale-[0.98]",
         active
-          ? "bg-[#1E2F5D] text-white shadow-[0_6px_18px_rgba(30,47,93,0.18)]"
-          : "bg-white text-[#3D3D3D] shadow-[0_4px_12px_rgba(0,0,0,0.06)]",
+        ? "bg-[#1E2F5D] text-white shadow-[0_4px_12px_rgba(30,47,93,0.16)]"
+        : "bg-white text-[#3D3D3D] shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-black/10"
       ].join(" ")}
     >
       <span>{label}</span>
@@ -890,13 +890,17 @@ export default function Requests() {
             </div>
           </div>
 
-          <div className="mt-6 -mx-6 px-6 overflow-x-auto hide-scrollbar pb-1">
+          <div className="mt-6 -mx-6 px-6 overflow-x-auto hide-scrollbar py-3 scroll-px-6">
             <style>{`
-              .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+              .hide-scrollbar { 
+                scrollbar-width: none; 
+                -ms-overflow-style: none; 
+                -webkit-overflow-scrolling: touch; /* ✅ iOS scroll suave */
+              }
               .hide-scrollbar::-webkit-scrollbar { display: none; }
             `}</style>
 
-            <div className="flex gap-3 w-max">
+            <div className="flex gap-3 w-max pr-2">
               <FilterChip
                 active={filter === FILTERS.TODAS}
                 label="Todas"
@@ -1076,15 +1080,17 @@ export default function Requests() {
                     ) : null}
 
                     <div className="mt-5 grid grid-cols-2 items-center gap-3">
-                      <span className="inline-flex items-center rounded-full px-2 py-2 text-[12px] font-extrabold bg-black/[0.04] text-black/60 w-full min-w-0">
-                        <span className="w-6 grid place-items-center shrink-0">
-                          <IconifyIcon icon="mdi:calendar-blank-outline" className="h-4 w-4 text-black/40" />
-                        </span>
-                        <span className="whitespace-nowrap">
-                          {turno.date}
-                          {turno.time ? ` · ${turno.time}` : ""}
-                        </span>
+                     <span className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-extrabold bg-black/[0.04] text-black/60 w-fit max-w-full">
+                      <IconifyIcon
+                        icon="mdi:calendar-blank-outline"
+                        className="h-4 w-4 text-black/40 shrink-0"
+                      />
+
+                      <span className="whitespace-nowrap">
+                        {turno.date}
+                        {turno.time ? ` · ${turno.time}` : ""}
                       </span>
+                    </span>
 
                       <div className="justify-self-end text-right">
                         <p className="text-[11px] font-medium text-black/45 leading-none">{isQuote ? "Cotización" : "Precio"}</p>

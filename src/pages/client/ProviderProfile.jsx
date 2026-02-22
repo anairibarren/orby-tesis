@@ -110,10 +110,35 @@ function mergeAvailability(ranges = []) {
   return out;
 }
 
-function shareText({ providerName, serviceName }) {
-  const p = providerName ? `Prestador: ${providerName}` : "Prestador en Orby";
-  const s = serviceName ? `Servicio: ${serviceName}` : "";
-  return [p, s, "Encontralo en Orby"].filter(Boolean).join("\n");
+async function onShare() {
+  try {
+    const baseUrl =
+      import.meta.env.VITE_PUBLIC_APP_URL ||
+      window.location.origin;
+
+    // Link profundo a este perfil (tu ruta actual)
+    const url = `${baseUrl}/client/provider/${encodeURIComponent(providerServiceId)}`;
+
+    const text = shareText({
+      providerName,
+      serviceName: currentServiceName,
+      url,
+    });
+
+    if (navigator.share) {
+      await navigator.share({
+        title: "orby",
+        text,
+        url, 
+      });
+      return;
+    }
+
+    await navigator.clipboard.writeText(text);
+    toast.success("Copiado", "Se copió el link para compartir.");
+  } catch {
+    // noop
+  }
 }
 
 function initials(name) {
