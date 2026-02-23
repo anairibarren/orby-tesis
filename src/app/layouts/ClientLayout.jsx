@@ -37,15 +37,17 @@ export default function ClientLayout() {
   const isHome = location.pathname === "/client" || location.pathname === "/client/";
 
   return (
-    <div
-      className="min-h-[100dvh] bg-[#F5F5F5]"
-      style={{
-        paddingTop: isHome ? 0 : "max(12px, env(safe-area-inset-top))",
-        paddingBottom: hideBottomNav
-          ? "env(safe-area-inset-bottom)"
-          : "calc(env(safe-area-inset-bottom) + 96px)",
-      }}
-    >
+  <div
+    className="min-h-[100dvh] bg-[#F5F5F5]"
+    style={{
+      // ✅ Home maneja su propio top (para que el header arranque arriba sin franja)
+      paddingTop: isHome ? 0 : "env(safe-area-inset-top)",
+
+      paddingBottom: hideBottomNav
+        ? "env(safe-area-inset-bottom)"
+        : "calc(env(safe-area-inset-bottom) + 96px)",
+    }}
+  >
       <AnimatePresence mode="wait">
         <motion.div
           key={location.pathname}

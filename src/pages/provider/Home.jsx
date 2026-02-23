@@ -280,33 +280,7 @@ export default function Home() {
     }
   }
 
-    // ✅ FIX iOS safe-area: que el patrón PNG se vea también detrás de la status bar
-  useEffect(() => {
-    const b = document.body;
-
-    const prev = {
-      bg: b.style.backgroundColor,
-      img: b.style.backgroundImage,
-      size: b.style.backgroundSize,
-      pos: b.style.backgroundPosition,
-      rep: b.style.backgroundRepeat,
-    };
-
-    b.style.backgroundColor = "#1E2F5D";
-    b.style.backgroundImage = `url(${patronBg})`;
-    b.style.backgroundSize = "cover";
-    b.style.backgroundPosition = "center top";
-    b.style.backgroundRepeat = "no-repeat";
-
-    return () => {
-      b.style.backgroundColor = prev.bg;
-      b.style.backgroundImage = prev.img;
-      b.style.backgroundSize = prev.size;
-      b.style.backgroundPosition = prev.pos;
-      b.style.backgroundRepeat = prev.rep;
-    };
-  }, []);
-
+  
   useEffect(() => {
     refresh();
     refreshIncoming();
@@ -518,11 +492,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
-      <div className="px-6 pt-[40px] pb-28">
+     <div className="px-6 pb-6">
 
        {/* Header (provider) + fondo azul más alto (menos redondeado) + patrón */}
         <div
-          className="-mx-6 -mt-[40px] px-6 pt-[max(40px,env(safe-area-inset-top))] pb-[64px] rounded-b-[22px] relative overflow-hidden"
+          className="-mx-6 px-6 pt-[calc(24px+env(safe-area-inset-top))] pb-[64px] rounded-b-[22px] relative overflow-hidden"
           style={{
             backgroundColor: "#1E2F5D",
             backgroundImage: `url(${patronBg})`,

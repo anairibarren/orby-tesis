@@ -27,18 +27,17 @@ export default function ProviderLayout() {
   const isHome = location.pathname === "/provider" || location.pathname === "/provider/";
 
   return (
-    <div
-      className={["min-h-[100dvh]", hideBottomNav ? "" : "pb-24"].join(" ")}
-      style={{
-        // ✅ Home ya maneja su propio safe-area y header (evita franja blanca)
-        paddingTop: isHome ? 0 : "max(12px, env(safe-area-inset-top))",
+  <div
+    className={["min-h-[100dvh]", hideBottomNav ? "" : "pb-24"].join(" ")}
+    style={{
+      // ✅ Home maneja su propio top
+      paddingTop: isHome ? 0 : "env(safe-area-inset-top)",
 
-        // ✅ safe-area inferior + espacio del bottom nav cuando corresponde
-        paddingBottom: hideBottomNav
-          ? "env(safe-area-inset-bottom)"
-          : "calc(env(safe-area-inset-bottom) + 96px)", // 96px ≈ pb-24
-      }}
-    >
+      paddingBottom: hideBottomNav
+        ? "env(safe-area-inset-bottom)"
+        : "calc(env(safe-area-inset-bottom) + 96px)",
+    }}
+  >
       <Routes>
         <Route index element={<ProviderHome />} />
         <Route path="requests" element={<ProviderRequests />} />

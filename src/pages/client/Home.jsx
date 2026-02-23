@@ -177,33 +177,7 @@ export default function Home() {
     }
   }
 
-    // ✅ FIX iOS safe-area: que el patrón PNG se vea también detrás de la status bar
-  useEffect(() => {
-    const b = document.body;
 
-    // guardo valores previos por si venís de otra página
-    const prev = {
-      bg: b.style.backgroundColor,
-      img: b.style.backgroundImage,
-      size: b.style.backgroundSize,
-      pos: b.style.backgroundPosition,
-      rep: b.style.backgroundRepeat,
-    };
-
-    b.style.backgroundColor = "#1E2F5D";
-    b.style.backgroundImage = `url(${patronBg})`;
-    b.style.backgroundSize = "cover";
-    b.style.backgroundPosition = "center top";
-    b.style.backgroundRepeat = "no-repeat";
-
-    return () => {
-      b.style.backgroundColor = prev.bg;
-      b.style.backgroundImage = prev.img;
-      b.style.backgroundSize = prev.size;
-      b.style.backgroundPosition = prev.pos;
-      b.style.backgroundRepeat = prev.rep;
-    };
-  }, []);
 
   async function loadReviewStatsForProviders(providerIds) {
     const ids = uniq(providerIds);
@@ -321,11 +295,11 @@ export default function Home() {
 
   return (
     <motion.div
-      className="min-h-[100dvh] bg-[#F5F5F5] px-6 pt-[40px] pb-[calc(24px+env(safe-area-inset-bottom)+90px)]"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-    >
+        className="min-h-[100dvh] bg-[#F5F5F5] px-6 pb-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+      >
       <style>{`
         .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -334,8 +308,9 @@ export default function Home() {
 
       {/* Header + Search (mock) */}
       <div
-          className="-mx-6 -mt-[40px] px-6 pt-[max(40px,env(safe-area-inset-top))] pb-6 rounded-b-[34px] relative overflow-hidden"
+          className="-mx-6 px-6 pb-6 rounded-b-[34px] relative overflow-hidden"
           style={{
+            paddingTop: "calc(env(safe-area-inset-top) + 24px)",
             backgroundColor: "#1E2F5D",
             backgroundImage: `url(${patronBg})`,
             backgroundRepeat: "no-repeat",

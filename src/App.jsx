@@ -56,14 +56,14 @@ export default function App() {
       return;
     }
 
-    // ✅ anti “flash”: que la splash se vea mínimo 650ms
     const t = setTimeout(() => setShowSplash(false), 650);
     return () => clearTimeout(t);
   }, [loading, profileLoading, user]);
 
-  // ✅ Body background switch:
+  // ✅ Body background switch (FIX Safari):
   // - Azul SOLO en: Auth + Splash
-  // - Gris en todo lo demás (incluye Home)
+  // - Gris en todo lo demás
+  // - Limpia estilos inline residuales (por si alguna page tocó body.style)
   useEffect(() => {
     const p = location.pathname;
 
@@ -79,8 +79,26 @@ export default function App() {
 
     document.body.classList.toggle("bg-orby", shouldBeBlue);
 
+    if (shouldBeBlue) {
+      // dejamos que mande la clase bg-orby
+      document.body.style.backgroundColor = "";
+      document.body.style.backgroundImage = "";
+      document.body.style.backgroundRepeat = "";
+      document.body.style.backgroundSize = "";
+      document.body.style.backgroundPosition = "";
+    } else {
+      // forzamos gris y sin imagen (Safari overscroll)
+      document.body.style.backgroundColor = "#F5F5F5";
+      document.body.style.backgroundImage = "none";
+      document.body.style.backgroundRepeat = "no-repeat";
+      document.body.style.backgroundSize = "auto";
+      document.body.style.backgroundPosition = "0 0";
+    }
+
     return () => {
       document.body.classList.remove("bg-orby");
+      document.body.style.backgroundColor = "#F5F5F5";
+      document.body.style.backgroundImage = "none";
     };
   }, [location.pathname, showSplash]);
 
@@ -133,7 +151,6 @@ export default function App() {
             </RequireGuest>
           }
         />
-
         <Route path="/reset-password" element={<ResetPassword />} />
 
         <Route
@@ -302,10 +319,7 @@ function RoleRedirect({ role }) {
 
 function RequireGuest({ user, role, children }) {
   const location = useLocation();
-
-  // ✅ Si venís del registro, NO redirigir automáticamente.
   if (location.state?.fromRegisterFlow) return children;
-
   if (user && !role) return <Navigate to="/register" replace />;
   if (user && role) return <RoleRedirect role={role} />;
   return children;
@@ -313,10 +327,8 @@ function RequireGuest({ user, role, children }) {
 
 function RequireAuth({ user, role, allow, children, requireRole = false }) {
   const location = useLocation();
-
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   if (requireRole && !role) return <Navigate to="/register" replace />;
   if (role && allow && !allow.includes(role)) return <Navigate to="/" replace />;
-
   return children;
 }
