@@ -33,16 +33,17 @@ export default function ClientLayout() {
 
   const hideBottomNav = /\/client\/requests\/[^/]+\/chat$/.test(location.pathname);
 
+  // ✅ Excepción: Home client (ruta exacta /client)
+  const isHome = location.pathname === "/client" || location.pathname === "/client/";
+
   return (
     <div
       className="min-h-[100dvh] bg-[#F5F5F5]"
       style={{
-        // ✅ evita que el contenido quede debajo de la status bar
-        paddingTop: "max(12px, env(safe-area-inset-top))",
-        // ✅ safe-area inferior + espacio del bottom nav cuando corresponde
+        paddingTop: isHome ? 0 : "max(12px, env(safe-area-inset-top))",
         paddingBottom: hideBottomNav
           ? "env(safe-area-inset-bottom)"
-          : "calc(env(safe-area-inset-bottom) + 96px)", // 96px ≈ pb-24
+          : "calc(env(safe-area-inset-bottom) + 96px)",
       }}
     >
       <AnimatePresence mode="wait">
