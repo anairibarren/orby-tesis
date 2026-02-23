@@ -596,7 +596,7 @@ async function onShare() {
     });
 
     if (navigator.share) {
-      await navigator.share({ title: "Orby", text, url });
+      await navigator.share({ title: "orby", text, url });
       return;
     }
 

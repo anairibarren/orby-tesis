@@ -66,8 +66,8 @@ function CardShell({ children, className = "" }) {
   return (
     <div
       className={[
-        "w-full rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] overflow-hidden",
-        className,
+      "w-full rounded-[22px] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.045)] overflow-hidden",     
+      className,
       ].join(" ")}
     >
       {children}
@@ -125,7 +125,7 @@ function RowButton({ icon, title, desc, onClick, right }) {
     <button
       type="button"
       onClick={onClick}
-      className="w-full min-w-0 rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] p-4 text-left active:scale-[0.99] transition box-border"
+      className="w-full rounded-[22px] bg-white shadow-[0_6px_16px_rgba(0,0,0,0.02)] p-4 xs:p-[18px] text-left active:scale-[0.99] transition box-border"
     >
       <div className="flex items-center justify-between gap-3 min-w-0">
         <div className="flex items-center gap-3 min-w-0">
@@ -268,7 +268,7 @@ function NeighborhoodCombobox({ value, onChange, disabled }) {
             />
 
             <motion.div
-              className="fixed z-[9999] rounded-[18px] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.12)] overflow-hidden border border-black/5"
+              className="fixed z-[9999] rounded-[18px] bg-white shadow-[0_10px_24px_rgba(0,0,0,0.10)] overflow-hidden border border-black/5"
               style={{ left: anchor.left, top: anchor.top, width: anchor.width }}
               initial={{ y: 6, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -624,7 +624,7 @@ export default function Profile() {
                 className={[
                   "w-full rounded-full py-3 font-semibold transition active:scale-[0.99] box-border",
                   "bg-white border border-black/10 text-[#3D3D3D]",
-                  "shadow-[0_10px_24px_rgba(0,0,0,0.08)]",
+                  "shadow-[0_10px_24px_rgba(0,0,0,0.01)]",
                   "inline-flex items-center justify-center gap-2",
                   loggingOut ? "opacity-60" : "",
                 ].join(" ")}

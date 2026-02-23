@@ -586,7 +586,7 @@ export default function ProviderRequestDetail() {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-black/45">Tarifa Orby (7%)</span>
+                <span className="text-black/45">Tarifa orby (7%)</span>
                 <span className="font-semibold text-black/70">{moneyARS(amounts?.fee)}</span>
               </div>
 

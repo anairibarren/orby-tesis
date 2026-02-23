@@ -804,7 +804,7 @@ export default function ClientRequestForm() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-black/50">Tarifa Orby (7%)</span>
+                  <span className="text-black/50">Tarifa orby (7%)</span>
                   <span className="font-semibold text-black/75">{moneyARS(amountsPreview.fee)}</span>
                 </div>
 
@@ -817,7 +817,7 @@ export default function ClientRequestForm() {
               <div>
                 <p className="text-[13px] font-extrabold text-[#3D3D3D]">Este servicio se cotiza</p>
                 <p className="mt-1 text-[12px] text-black/45 leading-snug">
-                  El prestador te va a pasar el precio. A eso se le suma la <b>tarifa Orby del 7%</b>.
+                  El prestador te va a pasar el precio. A eso se le suma la <b>tarifa orby del 7%</b>.
                 </p>
               </div>
             )}

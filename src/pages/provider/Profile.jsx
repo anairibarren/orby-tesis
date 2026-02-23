@@ -74,8 +74,7 @@ function CardShell({ children, className = "" }) {
   return (
     <div
       className={[
-        "w-full rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] overflow-hidden",
-        className,
+      "w-full rounded-[22px] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.045)] overflow-hidden",        className,
       ].join(" ")}
     >
       {children}
@@ -153,7 +152,7 @@ function RowButton({ icon, title, desc, onClick, right }) {
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] p-4 xs:p-[18px] text-left active:scale-[0.99] transition box-border"
+      className="w-full rounded-[22px] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] p-4 xs:p-[18px] text-left active:scale-[0.99] transition box-border"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
@@ -277,7 +276,7 @@ function NeighborhoodCombobox({ value, onChange, disabled }) {
       {open && !disabled && (
         <>
           <button type="button" className="fixed inset-0 z-[60] cursor-default" onClick={() => setOpen(false)} aria-label="Cerrar" />
-          <div className="absolute left-0 right-0 z-[70] mt-2 rounded-[18px] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.12)] overflow-hidden border border-black/5">
+          <div className="absolute left-0 right-0 z-[70] mt-2 rounded-[18px] bg-white shadow-[0_6px_18px_rgba(0,0,0,0.10)]overflow-hidden border border-black/5">
             <div className="max-h-[240px] overflow-auto">
               {filtered.length ? (
                 filtered.map((n) => (
@@ -744,7 +743,7 @@ const canSave = useMemo(() => {
                             disabled={busy || avatarUploading}
                             className={[
                               "h-10 px-4 rounded-full bg-white border border-black/10",
-                              "text-[12px] font-semibold text-[#3D3D3D] shadow-[0_8px_18px_rgba(0,0,0,0.06)]",
+                              "text-[12px] font-semibold text-[#3D3D3D] shadow-[0_2px_10px_rgba(0,0,0,0.05)]",
                               "active:scale-[0.99] transition",
                               avatarUploading ? "opacity-70" : "",
                             ].join(" ")}
@@ -1184,7 +1183,7 @@ export default function Profile() {
                   "w-full rounded-full py-3 font-semibold transition active:scale-[0.99] box-border",
                   "bg-white border border-black/10 text-[#3D3D3D]",
                   // ✅ usar box-shadow (NO drop-shadow)
-                  "shadow-[0_10px_24px_rgba(0,0,0,0.08)]",
+                  "shadow-[0_10px_24px_rgba(0,0,0,0.01)]",
                   // ✅ icon + texto centrados
                   "inline-flex items-center justify-center gap-2",
                   loggingOut ? "opacity-60" : "",
