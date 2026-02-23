@@ -66,8 +66,8 @@ function CardShell({ children, className = "" }) {
   return (
     <div
       className={[
-      "w-full rounded-[22px] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.045)] overflow-hidden",     
-      className,
+        "w-full rounded-[22px] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.045)] overflow-hidden",
+        className,
       ].join(" ")}
     >
       {children}
@@ -194,9 +194,8 @@ function NeighborhoodCombobox({ value, onChange, disabled }) {
 
     const r = el.getBoundingClientRect();
     const gap = 8;
-    const top = r.bottom + gap; // ✅ SIEMPRE abajo
+    const top = r.bottom + gap;
 
-    // ✅ max height dinámico: no se corta, se achica y scrollea
     const spaceBelow = window.innerHeight - top - 12;
     const maxH = Math.max(120, Math.min(240, spaceBelow));
 
@@ -306,8 +305,6 @@ function NeighborhoodCombobox({ value, onChange, disabled }) {
 function EditProfileModal({ open, onClose, onSave, busy, initial }) {
   const [fullName, setFullName] = useState("");
   const [neighborhood, setNeighborhood] = useState("");
-
-  // ✅ el warning solo aparece al intentar guardar
   const [neighborhoodTouched, setNeighborhoodTouched] = useState(false);
 
   useEffect(() => {
@@ -325,7 +322,6 @@ function EditProfileModal({ open, onClose, onSave, busy, initial }) {
 
   function trySave() {
     setNeighborhoodTouched(true);
-
     onSave?.({
       full_name: fullName.trim(),
       neighborhood: neighborhood.trim(),
@@ -389,7 +385,6 @@ function EditProfileModal({ open, onClose, onSave, busy, initial }) {
 
                   <NeighborhoodCombobox value={neighborhood} onChange={(v) => setNeighborhood(v)} disabled={busy} />
 
-                  {/* ✅ SOLO después de tocar Guardar */}
                   {neighborhoodTouched && norm(neighborhood).length > 0 && !neighborhoodValid ? (
                     <div className="rounded-[18px] bg-red-50 px-4 py-3">
                       <p className="text-[12px] font-semibold text-red-700">
@@ -430,13 +425,13 @@ function EditProfileModal({ open, onClose, onSave, busy, initial }) {
   );
 }
 
-/* ---------------- Skeleton (igual provider) ---------------- */
+/* ---------------- Skeleton ---------------- */
 function ProfileSkeleton() {
   return (
-    <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
+    <div className="min-h-screen bg-[#F5F5F5]">
       <div className="w-full pt-[40px] pb-24 box-border">
         <div
-          className="mx-auto w-full max-w-[460px] box-border overflow-x-hidden"
+          className="mx-auto w-full max-w-[460px]"
           style={{
             paddingLeft: "max(24px, env(safe-area-inset-left))",
             paddingRight: "max(24px, env(safe-area-inset-right))",
@@ -475,7 +470,6 @@ export default function Profile() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-
   const [favCount, setFavCount] = useState(0);
 
   const email = user?.email || "";
@@ -536,9 +530,11 @@ export default function Profile() {
   if (profileLoading && !profile) return <ProfileSkeleton />;
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
-      <div className="w-full px-6 pt-[40px] pb-6 box-border overflow-x-hidden">
-        <div className="mx-auto w-full max-w-[460px] box-border overflow-x-hidden">
+    <div className="min-h-screen bg-[#F5F5F5]">
+      {/* ✅ quitamos overflow-x-hidden acá para no recortar sombras */}
+      <div className="w-full px-6 pt-[40px] pb-6 box-border">
+        {/* ✅ ESTE era el que te cortaba la sombra: NO overflow-x-hidden */}
+        <div className="mx-auto w-full max-w-[460px]">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-[22px] font-extrabold text-[#3D3D3D] leading-tight">Perfil</h1>
@@ -615,7 +611,6 @@ export default function Profile() {
           </div>
 
           <div className="mt-4 overflow-visible pb-[max(18px,env(safe-area-inset-bottom))]">
-            {/* ✅ aire real abajo para que NO se corte la sombra al final del scroll */}
             <div className="pt-2 pb-3 overflow-visible">
               <button
                 type="button"
@@ -634,7 +629,6 @@ export default function Profile() {
               </button>
             </div>
 
-            {/* ✅ separador extra (garantiza que el scroll nunca “corte” la sombra) */}
             <div className="h-6" />
           </div>
         </div>

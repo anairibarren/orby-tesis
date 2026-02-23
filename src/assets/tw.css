@@ -178,3 +178,12 @@ textarea::selection {
   padding-top: max(14px, env(safe-area-inset-top));
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+html, body {
+  background: #F5F5F5;
+  overscroll-behavior-y: none;
+}
+
+body {
+  -webkit-overflow-scrolling: touch;
+}
