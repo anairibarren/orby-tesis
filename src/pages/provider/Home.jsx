@@ -280,6 +280,33 @@ export default function Home() {
     }
   }
 
+    // ✅ FIX iOS safe-area: que el patrón PNG se vea también detrás de la status bar
+  useEffect(() => {
+    const b = document.body;
+
+    const prev = {
+      bg: b.style.backgroundColor,
+      img: b.style.backgroundImage,
+      size: b.style.backgroundSize,
+      pos: b.style.backgroundPosition,
+      rep: b.style.backgroundRepeat,
+    };
+
+    b.style.backgroundColor = "#1E2F5D";
+    b.style.backgroundImage = `url(${patronBg})`;
+    b.style.backgroundSize = "cover";
+    b.style.backgroundPosition = "center top";
+    b.style.backgroundRepeat = "no-repeat";
+
+    return () => {
+      b.style.backgroundColor = prev.bg;
+      b.style.backgroundImage = prev.img;
+      b.style.backgroundSize = prev.size;
+      b.style.backgroundPosition = prev.pos;
+      b.style.backgroundRepeat = prev.rep;
+    };
+  }, []);
+
   useEffect(() => {
     refresh();
     refreshIncoming();
