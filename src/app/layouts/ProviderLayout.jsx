@@ -1,4 +1,3 @@
-// src/app/layouts/ProviderLayout.jsx
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import BottomNav from "../../components/BottomNav";
 
@@ -25,7 +24,20 @@ export default function ProviderLayout() {
   const hideBottomNav = /\/provider\/requests\/[^/]+\/chat$/.test(location.pathname);
 
   return (
-    <div className={hideBottomNav ? "min-h-screen" : "min-h-screen pb-24"}>
+    <div
+      className={[
+        "min-h-[100dvh]",
+        hideBottomNav ? "" : "pb-24",
+      ].join(" ")}
+      style={{
+        // ✅ evita que el contenido quede debajo de la status bar (iOS notch / PWA)
+        paddingTop: "max(12px, env(safe-area-inset-top))",
+        // ✅ respeta safe-area inferior (sin romper tu pb-24)
+        paddingBottom: hideBottomNav
+          ? "env(safe-area-inset-bottom)"
+          : "calc(env(safe-area-inset-bottom) + 96px)", // 96px ≈ pb-24
+      }}
+    >
       <Routes>
         <Route index element={<ProviderHome />} />
         <Route path="requests" element={<ProviderRequests />} />

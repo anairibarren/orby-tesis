@@ -1,4 +1,3 @@
-// src/app/layouts/ClientLayout.jsx
 import { Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import BottomNav from "../../components/BottomNav";
@@ -35,7 +34,17 @@ export default function ClientLayout() {
   const hideBottomNav = /\/client\/requests\/[^/]+\/chat$/.test(location.pathname);
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5]">
+    <div
+      className="min-h-[100dvh] bg-[#F5F5F5]"
+      style={{
+        // ✅ evita que el contenido quede debajo de la status bar
+        paddingTop: "max(12px, env(safe-area-inset-top))",
+        // ✅ safe-area inferior + espacio del bottom nav cuando corresponde
+        paddingBottom: hideBottomNav
+          ? "env(safe-area-inset-bottom)"
+          : "calc(env(safe-area-inset-bottom) + 96px)", // 96px ≈ pb-24
+      }}
+    >
       <AnimatePresence mode="wait">
         <motion.div
           key={location.pathname}
