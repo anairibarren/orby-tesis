@@ -817,54 +817,64 @@ export default function Requests() {
     setDeleteOpen(true);
   }
 
-  async function confirmDelete() {
-    if (!deleteReq?.id) return;
-    if (!canDeleteWithStatus(deleteReq?.status)) return;
+ async function confirmDelete() {
+  if (!deleteReq?.id) return;
+  if (!canDeleteWithStatus(deleteReq?.status)) return;
 
-    const id = deleteReq.id;
+  const id = deleteReq.id;
 
-    try {
-      setBusyId(id);
+  try {
+    setBusyId(id);
 
-      // ✅ optimista
+    // ❌ NO optimista acá
+    await deleteRequest(id);
+
+    // ✅ verificación SIN setItems (no refresh)
+    const after = await listIncomingRequests(user.id);
+    const stillThere = (after || []).some((x) => x.id === id);
+
+    if (stillThere) {
+      toast.error("No se pudo eliminar", "Parece un tema de permisos (RLS/policies).");
+      return;
+    }
+
+    toast.success("Eliminada", "Ya no aparece en tu lista.");
+
+    // ✅ cerramos el modal primero
+    setDeleteOpen(false);
+    setDeleteReq(null);
+
+    // ✅ y recién ahí sacamos la card
+    setItems((prev) => prev.filter((x) => x.id !== id));
+  } catch (e) {
+    if (isNotFoundLike(e)) {
+      toast.success("Eliminada", "Ya no aparece en tu lista.");
+      setDeleteOpen(false);
+      setDeleteReq(null);
       setItems((prev) => prev.filter((x) => x.id !== id));
-
-      await deleteRequest(id);
-
-      // ✅ verificación: si sigue estando, NO mentimos "se eliminó"
-      const after = await refresh({ silent: true });
+    } else {
+      // traemos estado real (sin cerrar el modal si sigue existiendo)
+      const after = await listIncomingRequests(user.id);
       const stillThere = (after || []).some((x) => x.id === id);
 
-      if (stillThere) {
-        toast.error("No se pudo eliminar", "Parece un tema de permisos (RLS/policies).");
-      } else {
+      if (!stillThere) {
         toast.success("Eliminada", "Ya no aparece en tu lista.");
         setDeleteOpen(false);
         setDeleteReq(null);
-      }
-    } catch (e) {
-      if (isNotFoundLike(e)) {
-        toast.success("Eliminada", "Ya no aparece en tu lista.");
-        setDeleteOpen(false);
-        setDeleteReq(null);
-        refresh({ silent: true });
+        setItems((prev) => prev.filter((x) => x.id !== id));
+      } else if (isRlsLike(e)) {
+        toast.error(
+          "No se pudo eliminar",
+          "No tenés permisos para eliminar. Revisá las policies (RLS) de service_requests."
+        );
       } else {
-        // si falla, traemos estado real
-        await refresh({ silent: true });
-
-        if (isRlsLike(e)) {
-          toast.error(
-            "No se pudo eliminar",
-            "No tenés permisos para eliminar. Revisá las policies (RLS) de service_requests."
-          );
-        } else {
-          toast.error("No se pudo eliminar", e?.message || "Error inesperado al eliminar.");
-        }
+        toast.error("No se pudo eliminar", e?.message || "Error inesperado al eliminar.");
       }
-    } finally {
-      setBusyId(null);
     }
+  } finally {
+    setBusyId(null);
   }
+}
 
   const subtitle = useMemo(() => {
     if (counts.incumplidas > 0) return `Tenés ${counts.incumplidas} incumplida(s) para revisar`;

@@ -396,23 +396,24 @@ export default function Agenda() {
           </button>
         </div>
 
-        <div className="mt-3 -mx-6 px-6 overflow-x-auto hide-scrollbar py-3">
+        <div className="mt-2 -mx-6 px-6 overflow-x-auto hide-scrollbar py-2">
           <style>{`
             .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
             .hide-scrollbar::-webkit-scrollbar { display: none; }
           `}</style>
 
-           <div className="flex gap-3 w-max pl-2 pr-2">
-              {daysStrip.map((d) => (
-                <DayChip
-                  key={d.toISOString()}
-                  date={d}
-                  active={sameDay(d, selectedDate)}
-                  count={countsByDay.get(d.getTime()) || 0}
-                  onClick={() => setSelectedDate(startOfDay(d))}
-                />
-              ))}
-            </div>
+          {/* ✅ sin padding izquierdo extra para alinear con la línea vertical */}
+          <div className="flex gap-3 w-max pr-2">
+            {daysStrip.map((d) => (
+              <DayChip
+                key={d.toISOString()}
+                date={d}
+                active={sameDay(d, selectedDate)}
+                count={countsByDay.get(d.getTime()) || 0}
+                onClick={() => setSelectedDate(startOfDay(d))}
+              />
+            ))}
+          </div>
         </div>
 
         {err && <p className="mt-4 text-sm text-red-600">{err}</p>}

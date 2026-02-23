@@ -694,46 +694,52 @@ function canDelete(req) {
     }
   }
 
-  async function confirmDelete() {
-    if (!deleteReq?.id) return;
-    if (!canDelete(deleteReq)) return;
+async function confirmDelete() {
+  if (!deleteReq?.id) return;
+  if (!canDelete(deleteReq)) return;
 
-    const id = deleteReq.id;
+  const id = deleteReq.id;
 
-    try {
-      setBusyId(id);
+  try {
+    setBusyId(id);
 
-      // optimista
-      setItems((prev) => prev.filter((x) => x.id !== id));
+    // ❌ NO hacemos optimista acá (para que no desaparezca la card mientras el sheet está abierto)
+    await deleteRequest(id);
 
-      await deleteRequest(id);
+    // ✅ verificación SIN tocar el state (no llamamos refresh porque refresh hace setItems)
+    const after = await listMyRequestsAsClientRich(user.id);
+    const stillThere = (after || []).some((x) => x.id === id);
 
-      // ✅ aseguramos que desaparezca
-      const after = await refresh({ silent: true });
-      const stillThere = (after || []).some((x) => x.id === id);
-
-      if (stillThere) {
-        toast.error("No se pudo eliminar", "Parece un tema de permisos (RLS).");
-      } else {
-        toast.success("Eliminada", "Ya no aparece en tu lista.");
-        setDeleteOpen(false);
-        setDeleteReq(null);
-      }
-    } catch (e) {
-      const after = await refresh({ silent: true });
-      const stillThere = (after || []).some((x) => x.id === id);
-
-      if (!stillThere) {
-        toast.success("Eliminada", "Ya no aparece en tu lista.");
-        setDeleteOpen(false);
-        setDeleteReq(null);
-      } else {
-        toast.error("No se pudo eliminar", e?.message || "Revisá RLS/policies.");
-      }
-    } finally {
-      setBusyId(null);
+    if (stillThere) {
+      toast.error("No se pudo eliminar", "Parece un tema de permisos (RLS).");
+      return; // dejo el modal abierto
     }
+
+    toast.success("Eliminada", "Ya no aparece en tu lista.");
+
+    // ✅ cerramos primero el modal
+    setDeleteOpen(false);
+    setDeleteReq(null);
+
+    // ✅ ahora sí actualizamos la lista (ya sin modal)
+    setItems((prev) => prev.filter((x) => x.id !== id));
+  } catch (e) {
+    // Si por algún motivo ya no existe, lo tratamos como éxito
+    const after = await listMyRequestsAsClientRich(user.id);
+    const stillThere = (after || []).some((x) => x.id === id);
+
+    if (!stillThere) {
+      toast.success("Eliminada", "Ya no aparece en tu lista.");
+      setDeleteOpen(false);
+      setDeleteReq(null);
+      setItems((prev) => prev.filter((x) => x.id !== id));
+    } else {
+      toast.error("No se pudo eliminar", e?.message || "Revisá RLS/policies.");
+    }
+  } finally {
+    setBusyId(null);
   }
+}
 
   async function acceptQuote(req) {
     if (!req?.id) return;

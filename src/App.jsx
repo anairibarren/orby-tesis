@@ -133,14 +133,8 @@ export default function App() {
             </RequireGuest>
           }
         />
-        <Route
-          path="/reset-password"
-          element={
-            <RequireGuest user={user} role={role}>
-              <ResetPassword />
-            </RequireGuest>
-          }
-        />
+
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         <Route
           path="/register/provider/last-step"

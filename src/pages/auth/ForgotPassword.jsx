@@ -23,8 +23,7 @@ export default function ForgotPassword() {
     setLoading(true);
     try {
       // ✅ Debe coincidir con una URL permitida en Supabase Auth (ver paso 3)
-      const redirectTo = `${window.location.origin}/reset-password`;
-
+      const redirectTo = `https://orbyapp.vercel.app/reset-password`;
       const { error } = await supabase.auth.resetPasswordForEmail(em, { redirectTo });
       if (error) throw error;
 

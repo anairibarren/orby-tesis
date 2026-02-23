@@ -924,7 +924,7 @@ function ProfileSkeleton() {
   return (
     <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
       {/* ✅ mobile: padding-top menor + safe area */}
-      <div className="w-full pt-[28px] xs:pt-[34px] sm:pt-[40px] pb-24 box-border">
+      <div className="w-full px-6 pt-[40px] pb-24 box-border overflow-x-hidden">
         <div
           className="mx-auto w-full max-w-[460px] box-border overflow-x-hidden"
           style={{
@@ -1091,25 +1091,13 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
-      {/* ✅ mobile: padding-top menor + safe areas */}
-      <div className="w-full pt-[28px] xs:pt-[34px] sm:pt-[40px] pb-24 box-border overflow-x-hidden">
-        <div
-          className="mx-auto w-full max-w-[460px] box-border overflow-x-hidden"
-          style={{
-            paddingLeft: "max(14px, env(safe-area-inset-left))",
-            paddingRight: "max(14px, env(safe-area-inset-right))",
-          }}
-        >
-          <div className="flex items-center justify-between gap-3">
+   <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
+  <div className="w-full px-6 pt-[40px] pb-6 box-border overflow-x-hidden">
+    <div className="mx-auto w-full max-w-[460px] box-border overflow-x-hidden">
+          <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              {/* ✅ mobile: título un toque más chico para pantallas mínimas */}
-              <h1 className="text-[20px] xs:text-[21px] sm:text-[22px] font-extrabold text-[#3D3D3D] leading-tight">
-                Perfil
-              </h1>
-              <p className="mt-1 text-[12px] xs:text-[13px] text-black/45 leading-relaxed">
-                Mantené tu perfil actualizado
-              </p>
+              <h1 className="text-[22px] font-extrabold text-[#3D3D3D] leading-tight">Perfil</h1>
+              <p className="mt-1 text-[13px] text-black/45 leading-relaxed">Mantené tu perfil actualizado</p>
             </div>
 
             <IconButton
