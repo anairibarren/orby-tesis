@@ -676,19 +676,6 @@ const { matchedServices, matchedProviders } = useMemo(() => {
 
                               <p className="mt-1 text-[12px] text-black/45 truncate">{prov.neighborhood || "—"}</p>
                             </div>
-
-                            <div className="shrink-0 flex flex-col items-end gap-2">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  nav(`/client/services/${encodeURIComponent(providerServiceId)}/request`);
-                                }}
-                                className="h-9 px-4 rounded-full bg-[#1E2F5D] text-white text-[12px] font-semibold shadow-[0_10px_18px_rgba(30,47,93,0.18)] active:scale-[0.98] transition"
-                              >
-                                Solicitar
-                              </button>
-                            </div>
                           </div>
                         </CardShell>
                       ))}
