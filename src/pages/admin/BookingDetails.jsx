@@ -10,7 +10,8 @@ function CardShell({ children, className = "" }) {
   return (
     <div
       className={[
-        "w-full rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] overflow-hidden border border-black/10",
+        "w-full rounded-[22px] bg-white overflow-hidden border border-black/10",
+        "shadow-[0_8px_18px_rgba(0,0,0,0.02)]", // ✅ sombra más suave (0.02)
         className,
       ].join(" ")}
     >
@@ -194,10 +195,11 @@ export default function BookingDetails() {
   const client = computed.client || {};
 
   const cleanedDesc = cleanDescription(computed.description);
+  const canSave = !saving && newStatus && newStatus !== computed.status;
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
-      <div className="space-y-5 p-4">
+      <div className="space-y-5 px-0 pt-4 pb-28">
         {/* Header */}
         <div className="relative flex items-center justify-center">
           <button
@@ -253,7 +255,6 @@ export default function BookingDetails() {
           <div className="pt-4 border-t border-black/10">
             <p className="text-[12px] font-semibold text-black/40">Cliente</p>
             <div className="mt-2 flex items-center gap-3">
-              <Avatar src={client.avatar_url} name={client.full_name} />
               <div className="min-w-0">
                 <p className="text-[14px] font-extrabold text-[#3D3D3D] truncate">{client.full_name || "—"}</p>
                 {client.neighborhood && <p className="mt-0.5 text-[12px] text-black/50 truncate">{client.neighborhood}</p>}
@@ -302,29 +303,60 @@ export default function BookingDetails() {
 
         {/* Cambio estado */}
         <CardShell className="p-5">
-          <h3 className="text-[16px] font-extrabold text-[#3D3D3D] mb-4">
-            Cambiar estado
-          </h3>
-          <div className="flex gap-3">
-            <select
-              value={newStatus}
-              onChange={(e) => setNewStatus(e.target.value)}
-              className="h-14 flex-1 rounded-full bg-black/[0.04] text-black/70 font-medium active:scale-[0.99] transition px-4 outline-none"
-            >
-              <option value="solicitada">Solicitada</option>
-              {!isFixedPrice && <option value="cotizada">Cotizada</option>}
-              <option value="aceptada">Aceptada</option>
-              <option value="agendada">Agendada</option>
-              <option value="completada">Completada</option>
-              <option value="incumplida">Incumplida</option>
-              <option value="cancelada">Cancelada</option>
-              <option value="rechazada">Rechazada</option>
-            </select>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-[14px] font-extrabold text-[#3D3D3D] leading-none">
+                Cambiar estado
+              </h3>
+              <p className="mt-2 text-[12px] text-black/45 leading-snug">
+                Seleccioná un nuevo estado y guardá el cambio.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-stretch gap-3">
+            <div className="relative flex-1">
+              <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-black/40">
+                <IconifyIcon icon="mdi:chevron-down" className="h-5 w-5" />
+              </span>
+
+              <select
+                value={newStatus}
+                onChange={(e) => setNewStatus(e.target.value)}
+                className={[
+                  "h-14 w-full rounded-full",
+                  "bg-black/[0.04] text-black/70",
+                  "border border-black/10",
+                  "px-5 pr-12 text-[14px] font-semibold",
+                  "outline-none transition appearance-none",
+                  "focus:border-[#1E2F5D]/30 focus:ring-2 focus:ring-[#1E2F5D]/10",
+                  "active:scale-[0.99]",
+                ].join(" ")}
+              >
+                <option value="solicitada">Solicitada</option>
+                {!isFixedPrice && <option value="cotizada">Cotizada</option>}
+                <option value="aceptada">Aceptada</option>
+                <option value="agendada">Agendada</option>
+                <option value="completada">Completada</option>
+                <option value="incumplida">Incumplida</option>
+                <option value="cancelada">Cancelada</option>
+                <option value="rechazada">Rechazada</option>
+              </select>
+            </div>
 
             <button
               onClick={handleStatusChange}
-              disabled={saving}
-              className="h-14 flex-1 rounded-full bg-[#1E2F5D] text-white font-medium shadow-[0_10px_24px_rgba(30,47,93,0.22)] active:scale-[0.99] transition"
+              disabled={!canSave}
+              className={[
+                "h-14 flex-1 rounded-full",
+                "text-[14px] font-extrabold",
+                canSave
+                  ? "bg-[#1E2F5D] text-white shadow-[0_10px_24px_rgba(30,47,93,0.22)]"
+                  : "bg-black/[0.06] text-black/40 border border-black/10 shadow-none",
+                "transition active:scale-[0.99]",
+                "disabled:cursor-not-allowed",
+                "min-w-[140px]",
+              ].join(" ")}
             >
               {saving ? "Guardando..." : "Guardar"}
             </button>

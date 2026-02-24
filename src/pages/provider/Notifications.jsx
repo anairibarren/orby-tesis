@@ -578,11 +578,6 @@ export default function ProviderNotifications() {
               <p className="mt-2 text-[13px] text-black/45 leading-relaxed max-w-[250px]">
                 Cuando haya una novedad, te va a aparecer acá.
               </p>
-
-              {/* separador sutil */}
-              <div className="mt-6 w-full max-w-[360px]">
-                <div className="h-px w-full bg-black/5" />
-              </div>
             </div>
           </div>
           )}

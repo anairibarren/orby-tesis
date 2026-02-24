@@ -1,12 +1,12 @@
+//src/pages/admin/ServiceDetail
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Navigate } from "react-router-dom";
 import { supabase } from "../../services/supabase";
-import { Navigate } from "react-router-dom";
 import { useAuthContext } from "../../context/AuthContext";
 import { isAdmin } from "../../services/adminAccess";
 import Loading from "../../components/Loading";
 import { useToast } from "../../components/Toast";
-import Modal from "../../components/Modal";
+import { Icon } from "@iconify/react";
 
 /* ================= UI COMPONENTS ================= */
 
@@ -14,11 +14,23 @@ function CardShell({ children, className = "" }) {
   return (
     <div
       className={[
-        "w-full rounded-[22px] bg-white shadow-[0_10px_22px_rgba(0,0,0,0.06)] overflow-hidden border border-black/10",
+        "w-full rounded-[22px] bg-white overflow-hidden border border-black/10",
+        "shadow-[0_8px_18px_rgba(0,0,0,0.02)]",
         className,
       ].join(" ")}
     >
       {children}
+    </div>
+  );
+}
+
+function SectionTitle({ icon, title }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="h-8 w-8 rounded-xl bg-black/[0.04] grid place-items-center">
+        <Icon icon={icon} className="h-5 w-5 text-black/45" />
+      </span>
+      <p className="text-[14px] font-extrabold text-[#3D3D3D]">{title}</p>
     </div>
   );
 }
@@ -30,6 +42,62 @@ function InfoRow({ label, value }) {
       <span className="text-[13px] font-semibold text-black/70 text-right">
         {value || "—"}
       </span>
+    </div>
+  );
+}
+
+/* ================= SHEET (bottom) ================= */
+function Sheet({
+  open,
+  onClose,
+  title,
+  subtitle,
+  children,
+  disabledClose = false,
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999]">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40"
+        onClick={() => !disabledClose && onClose?.()}
+        aria-label="Cerrar"
+      />
+
+      <div className="absolute left-0 right-0 bottom-0 px-4 pb-6">
+        <div className="mx-auto max-w-[520px] rounded-[28px] bg-white shadow-2xl overflow-hidden border border-black/10 animate-sheetUp">
+          <div className="pt-3 flex justify-center">
+            <div className="h-1.5 w-14 rounded-full bg-black/10" />
+          </div>
+
+          <div className="px-6 pt-4 pb-5">
+            <div className="flex items-start gap-3">
+              <div className="min-w-0">
+                <h3 className="text-[16px] font-extrabold text-[#3D3D3D]">
+                  {title}
+                </h3>
+                {subtitle ? (
+                  <p className="mt-1 text-[12px] text-black/45 leading-snug">
+                    {subtitle}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-5">{children}</div>
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes sheetUp {
+          from { transform: translateY(16px); opacity: 0; }
+          to   { transform: translateY(0); opacity: 1; }
+        }
+        .animate-sheetUp { animation: sheetUp .18s ease-out both; }
+      `}</style>
     </div>
   );
 }
@@ -53,12 +121,18 @@ export default function ServiceDetails() {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
 
-  // MODAL BORRAR
+  // SHEET BORRAR
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  /* ================= LOAD DATA ================= */
+  // SHEET OPCIONES (⋯)
+  const [showOptionsSheet, setShowOptionsSheet] = useState(false);
 
+  // UI: ver más / ver menos para prestadores
+  const [showAllProviders, setShowAllProviders] = useState(false);
+  const PROVIDERS_PREVIEW = 6;
+
+  /* ================= LOAD DATA ================= */
   async function loadData() {
     setLoading(true);
     setNotFound(false);
@@ -92,7 +166,6 @@ export default function ServiceDetails() {
     const uniqueCategories = [
       ...new Set((categoriesData || []).map((c) => c.category)),
     ];
-
     setCategories(uniqueCategories);
 
     setName(serviceData.name);
@@ -103,10 +176,10 @@ export default function ServiceDetails() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   /* ================= REAL TIME ================= */
-
   useEffect(() => {
     const channel = supabase
       .channel(`provider_services_changes_${id}`)
@@ -125,10 +198,10 @@ export default function ServiceDetails() {
     return () => {
       supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   /* ================= COMPUTED ================= */
-
   const computedProviders = useMemo(() => {
     return providers.map((p) => ({
       id: p.id,
@@ -137,8 +210,13 @@ export default function ServiceDetails() {
     }));
   }, [providers]);
 
-  /* ================= ACTIONS ================= */
+  const hasProviders = computedProviders.length > 0;
 
+  const visibleProviders = showAllProviders
+    ? computedProviders
+    : computedProviders.slice(0, PROVIDERS_PREVIEW);
+
+  /* ================= ACTIONS ================= */
   async function handleUpdateService(e) {
     e.preventDefault();
 
@@ -167,6 +245,15 @@ export default function ServiceDetails() {
   }
 
   async function handleDeleteService() {
+    if (hasProviders) {
+      toast.warning(
+        "No se puede eliminar este servicio",
+        "Hay prestadores activos que lo ofrecen. Primero desasociá el servicio de esos prestadores."
+      );
+      setShowDeleteModal(false);
+      return;
+    }
+
     setDeleting(true);
 
     const { error } = await supabase
@@ -178,7 +265,10 @@ export default function ServiceDetails() {
 
     if (error) {
       console.error(error);
-      toast.error("Error al eliminar servicio");
+      toast.error(
+        "No se pudo eliminar el servicio",
+        "Probá de nuevo o verificá si está asociado a algún prestador."
+      );
       return;
     }
 
@@ -187,13 +277,9 @@ export default function ServiceDetails() {
   }
 
   /* ================= RENDER ================= */
-
-    if (authLoading) return <Loading />;
-
+  if (authLoading) return <Loading />;
   if (!user) return <Navigate to="/login" replace />;
-
   if (!isAdmin(user)) return <Navigate to="/" replace />;
-
   if (loading) return <Loading />;
 
   if (notFound) {
@@ -217,14 +303,15 @@ export default function ServiceDetails() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
-      <div className="space-y-5 p-4">
-
+      <div className="space-y-5 px-0 pt-4 pb-28">
         {/* Header */}
         <div className="relative flex items-center justify-center">
           <button
             type="button"
             onClick={() => navigate("/admin/services")}
-            className="absolute left-0 h-11 w-11 rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.06)] grid place-items-center"
+            className="absolute left-0 h-11 w-11 rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.02)] grid place-items-center"
+            aria-label="Volver"
+            title="Volver"
           >
             <span className="text-2xl leading-none">‹</span>
           </button>
@@ -232,161 +319,278 @@ export default function ServiceDetails() {
           <h1 className="text-[18px] font-extrabold text-[#3D3D3D]">
             Detalle del servicio
           </h1>
+
+          {/* ⋯ Menu (abre Sheet) */}
+          <div className="absolute right-0">
+            <button
+              type="button"
+              onClick={() => setShowOptionsSheet(true)}
+              className="h-11 w-11 rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.02)] grid place-items-center active:scale-[0.99] transition"
+              aria-label="Opciones"
+              title="Opciones"
+            >
+              <Icon icon="mdi:dots-horizontal" className="h-6 w-6 text-black/45" />
+            </button>
+          </div>
         </div>
 
         {/* Servicio */}
         <CardShell className="p-5">
-          <h3 className="text-[16px] font-extrabold text-[#3D3D3D] mb-2">
-            Servicio
-          </h3>
-          <InfoRow label="Servicio" value={service.name} />
-          <InfoRow label="Categoría" value={service.category} />
+          <SectionTitle icon="mdi:briefcase-outline" title="Servicio" />
+          <InfoRow label="Servicio" value={service?.name} />
+          <InfoRow label="Categoría" value={service?.category} />
         </CardShell>
 
         {/* Prestadores */}
         <CardShell className="p-5">
-          <h3 className="text-[16px] font-extrabold text-[#3D3D3D] mb-3">
-            Prestadores que lo ofrecen
-          </h3>
+          <div className="flex items-center justify-between gap-3">
+            <SectionTitle
+              icon="mdi:account-group-outline"
+              title="Prestadores que lo ofrecen"
+            />
 
-          {computedProviders.length === 0 && (
-            <p className="text-sm text-black/50">
+            {computedProviders.length > PROVIDERS_PREVIEW && (
+              <button
+                type="button"
+                onClick={() => setShowAllProviders((v) => !v)}
+                className="h-9 px-4 rounded-full bg-black/[0.04] border border-black/10 text-[12px] font-extrabold text-[#3D3D3D] inline-flex items-center gap-2 active:scale-[0.99] transition"
+              >
+                <span>{showAllProviders ? "Ver menos" : "Ver más"}</span>
+                <Icon
+                  icon={showAllProviders ? "mdi:chevron-up" : "mdi:chevron-down"}
+                  className="h-5 w-5 text-black/45"
+                />
+              </button>
+            )}
+          </div>
+
+          {computedProviders.length === 0 ? (
+            <p className="mt-3 text-sm text-black/50">
               No hay prestadores activos ofreciendo este servicio.
             </p>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {visibleProviders.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between rounded-[18px] bg-black/[0.03] px-4 py-3"
+                >
+                  <span className="text-sm font-medium text-black/70 truncate">
+                    {p.name}
+                  </span>
+                  <span className="text-sm font-extrabold text-[#3D3D3D]">
+                    ${Number(p.price).toLocaleString("es-AR")}
+                  </span>
+                </div>
+              ))}
+
+              {!showAllProviders && computedProviders.length > PROVIDERS_PREVIEW && (
+                <p className="pt-1 text-[12px] text-black/40">
+                  Mostrando {PROVIDERS_PREVIEW} de {computedProviders.length}.
+                </p>
+              )}
+            </div>
           )}
-
-          <div className="space-y-3">
-            {computedProviders.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-center justify-between rounded-xl border border-black/10 px-4 py-3"
-              >
-                <span className="text-sm font-medium text-black/80">
-                  {p.name}
-                </span>
-                <span className="text-sm font-semibold text-[#1E2F5D]">
-                  ${Number(p.price).toLocaleString("es-AR")}
-                </span>
-              </div>
-            ))}
-          </div>
-        </CardShell>
-
-        {/* EDICIÓN */}
-        <CardShell className="p-5">
-          <h3 className="text-[16px] font-extrabold text-[#3D3D3D] mb-3">
-            Edición de servicio
-          </h3>
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowEditModal(true)}
-              className="flex-1 rounded-full border border-black/10 py-2 text-sm font-medium"
-            >
-              Editar servicio
-            </button>
-
-            <button
-              onClick={() => setShowDeleteModal(true)}
-              className="flex-1 rounded-full bg-[#1E2F5D] py-2 text-sm font-medium text-white"
-            >
-              Borrar servicio
-            </button>
-          </div>
         </CardShell>
       </div>
 
-      {showEditModal && (
-        <div className="fixed inset-0 z-[999] flex items-end">
-          <div
+      {/* SHEET OPCIONES (sin botón Cancelar) */}
+      <Sheet
+        open={showOptionsSheet}
+        onClose={() => setShowOptionsSheet(false)}
+        title="Opciones"
+        subtitle="Administrá este servicio."
+      >
+        <div className="grid gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setShowOptionsSheet(false);
+              setShowEditModal(true);
+            }}
+            className="w-full h-[54px] rounded-full border border-black/10 text-[14px] font-extrabold active:scale-[0.99] transition inline-flex items-center justify-center gap-2 bg-black/[0.04] text-[#3D3D3D]"
+          >
+            <Icon icon="mdi:pencil" className="h-5 w-5 text-black/55" />
+            Editar servicio
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowOptionsSheet(false);
+
+              if (hasProviders) {
+                toast.warning(
+                  "No se puede eliminar este servicio",
+                  "Hay prestadores activos que lo ofrecen. Primero desasociá el servicio de esos prestadores."
+                );
+                return;
+              }
+
+              setShowDeleteModal(true);
+            }}
+            disabled={hasProviders}
+            className={[
+              "w-full h-[54px] rounded-full border border-black/10 text-[14px] font-extrabold active:scale-[0.99] transition inline-flex items-center justify-center gap-2",
+              hasProviders
+                ? "bg-black/[0.04] text-black/40"
+                : "bg-[#FFECEE] text-[#9B1C1C]",
+            ].join(" ")}
+          >
+            <Icon
+              icon="mdi:trash-can"
+              className={["h-5 w-5", hasProviders ? "text-black/30" : "text-[#9B1C1C]"].join(" ")}
+            />
+            Eliminar servicio
+          </button>
+
+          {hasProviders && (
+            <p className="pt-1 text-[12px] text-black/45 leading-snug">
+              Este servicio no se puede eliminar porque hay prestadores activos que lo ofrecen.
+            </p>
+          )}
+        </div>
+      </Sheet>
+
+      {/* MODAL EDITAR (estilo como tu imagen) */}
+     {showEditModal && (
+        <div className="fixed inset-0 z-[9999]">
+          {/* overlay */}
+          <button
+            type="button"
             className="absolute inset-0 bg-black/40"
             onClick={() => setShowEditModal(false)}
+            aria-label="Cerrar"
           />
 
-          <form
-            onSubmit={handleUpdateService}
-            className="relative w-full bg-white rounded-t-[28px] p-6 pb-8 max-w-[460px] mx-auto"
-          >
-            <div className="w-10 h-1.5 bg-black/20 rounded-full mx-auto mb-6" />
-
-            <h2 className="text-[18px] font-extrabold text-[#3D3D3D] mb-2">
-              Editar servicio
-            </h2>
-
-            <p className="text-sm text-black/45 mb-6">
-              Modificá la información del servicio seleccionado.
-            </p>
-
-            <div className="space-y-5">
-
-              <div>
-                <label className="text-sm text-black/45 block mb-1">
-                  Nombre del servicio <span className="text-red-500">*</span>
-                </label>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-[18px] bg-black/[0.03] px-4 py-3 text-sm font-medium outline-none"
-                />
+          {/* sheet con márgenes */}
+          <div className="absolute left-0 right-0 bottom-0 px-4 pb-6">
+            <form
+              onSubmit={handleUpdateService}
+              className="mx-auto max-w-[520px] rounded-[28px] bg-white shadow-2xl overflow-hidden border border-black/10 animate-sheetUp"
+            >
+              {/* handle */}
+              <div className="pt-3 flex justify-center">
+                <div className="h-1.5 w-14 rounded-full bg-black/10" />
               </div>
 
-
-              <div className="pt-2">
-                <h3 className="text-sm text-black/45 block mb-1">
-                  Categoría
-                </h3>
-
-                <p className="text-xs text-black/45 mb-3">
-                  Seleccioná la categoría correspondiente.
+              {/* header */}
+              <div className="px-6 pt-4 pb-4">
+                <h2 className="text-[18px] font-extrabold text-[#3D3D3D]">
+                  Editar servicio
+                </h2>
+                <p className="mt-1 text-[12px] text-black/45">
+                  Mantené la información actualizada.
                 </p>
-
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full rounded-[18px] bg-black/[0.03] px-4 py-3 text-sm font-medium outline-none appearance-none"
-                >
-                  <option value="">Seleccionar categoría</option>
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
               </div>
-            </div>
 
+              {/* content */}
+              <div className="px-6 pb-4 space-y-3">
+                {/* Nombre */}
+                <div className="rounded-[18px] bg-black/[0.03] px-4 py-3">
+                  <div className="flex items-center gap-2 text-black/45">
+                    <Icon icon="mdi:briefcase-outline" className="h-5 w-5" />
+                    <p className="text-[12px] font-semibold">
+                      Nombre del servicio <span className="text-red-500">*</span>
+                    </p>
+                  </div>
 
-            <div className="mt-8 space-y-3">
-              <button
-                type="submit"
-                className="w-full h-14 rounded-full bg-[#1E2F5D] text-white font-medium shadow-[0_10px_24px_rgba(30,47,93,0.22)] active:scale-[0.99] transition"
-              >
-                Guardar cambios
-              </button>
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="mt-2 w-full bg-transparent text-[16px] font-extrabold text-[#3D3D3D] outline-none placeholder:text-black/30"
+                    placeholder="Ingresá el nombre"
+                  />
+                </div>
 
-              <button
-                type="button"
-                onClick={() => setShowEditModal(false)}
-                className="w-full h-14 rounded-full bg-black/[0.04] text-black/70 font-medium active:scale-[0.99] transition"
-              >
-                Cancelar
-              </button>
-            </div>
-          </form>
+                {/* Categoría */}
+                <div className="rounded-[18px] bg-black/[0.03] px-4 py-3">
+                  <div className="flex items-center gap-2 text-black/45">
+                    <Icon icon="mdi:tag-outline" className="h-5 w-5" />
+                    <p className="text-[12px] font-semibold">
+                      Categoría <span className="text-red-500">*</span>
+                    </p>
+                  </div>
+
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="mt-2 w-full bg-transparent text-[16px] font-extrabold text-[#3D3D3D] outline-none appearance-none"
+                  >
+                    <option value="">Seleccionar categoría</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* footer */}
+              <div className="px-6 pb-6 pt-3 border-t border-black/10 bg-white">
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="h-[54px] rounded-full bg-white border border-black/10 text-[14px] font-extrabold text-[#3D3D3D] active:scale-[0.99] transition"
+                  >
+                    Cancelar
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="h-[54px] rounded-full bg-[#1E2F5D] text-white text-[14px] font-extrabold shadow-[0_10px_24px_rgba(30,47,93,0.22)] active:scale-[0.99] transition"
+                  >
+                    Guardar
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <style>{`
+            @keyframes sheetUp {
+              from { transform: translateY(16px); opacity: 0; }
+              to   { transform: translateY(0); opacity: 1; }
+            }
+            .animate-sheetUp { animation: sheetUp .18s ease-out both; }
+          `}</style>
         </div>
       )}
 
-      {/* MODAL BORRAR */}
-      <Modal
+      {/* SHEET BORRAR (botones en 14) */}
+      <Sheet
         open={showDeleteModal}
+        onClose={() => !deleting && setShowDeleteModal(false)}
+        disabledClose={deleting}
         title="Eliminar servicio"
-        description="¿Seguro que querés eliminar este servicio? Esta acción no se puede deshacer."
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-        loading={deleting}
-        onCancel={() => setShowDeleteModal(false)}
-        onConfirm={handleDeleteService}
-      />
+        subtitle="¿Seguro que querés eliminar este servicio? Esta acción no se puede deshacer."
+      >
+        <div className="grid gap-2">
+          <button
+            type="button"
+            onClick={handleDeleteService}
+            disabled={deleting}
+            className={[
+              "h-[54px] w-full rounded-full text-white text-[14px] font-extrabold",
+              "shadow-[0_14px_30px_rgba(198,40,40,0.20)] active:scale-[0.99] transition",
+              deleting ? "bg-[#C62828]/60" : "bg-[#C62828]",
+            ].join(" ")}
+          >
+            {deleting ? "Eliminando..." : "Eliminar"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowDeleteModal(false)}
+            disabled={deleting}
+            className="h-[54px] w-full rounded-full bg-white border border-black/10 text-[#3D3D3D] text-[14px] font-extrabold shadow-[0_8px_18px_rgba(0,0,0,0.02)] active:scale-[0.99] transition"
+          >
+            Cancelar
+          </button>
+        </div>
+      </Sheet>
     </div>
   );
 }

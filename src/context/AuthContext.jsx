@@ -1,6 +1,8 @@
+// src/context/AuthContext.jsx (o donde lo tengas)
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../services/supabase";
 import { getMyProfile } from "../services/profiles";
+import { isAdmin } from "../services/adminAccess";
 
 const AuthContext = createContext(null);
 
@@ -27,11 +29,13 @@ export function AuthProvider({ children }) {
 
     init();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession ?? null);
-      setUser(newSession?.user ?? null);
-      setLoading(false);
-    });
+    const { data: sub } = supabase.auth.onAuthStateChange(
+      (_event, newSession) => {
+        setSession(newSession ?? null);
+        setUser(newSession?.user ?? null);
+        setLoading(false);
+      }
+    );
 
     return () => {
       mounted = false;
@@ -75,6 +79,9 @@ export function AuthProvider({ children }) {
    */
   const role = profile?.role ?? user?.user_metadata?.role ?? null;
 
+  // ✅ agregado: flag de admin (safe si user es null)
+  const isAdminUser = user ? isAdmin(user) : false;
+
   const value = useMemo(
     () => ({
       loading,
@@ -84,8 +91,9 @@ export function AuthProvider({ children }) {
       profile,
       profileLoading,
       setProfile,
+      isAdminUser,
     }),
-    [loading, session, user, role, profile, profileLoading]
+    [loading, session, user, role, profile, profileLoading, isAdminUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
