@@ -42,6 +42,18 @@ import ClientRequestSuccess from "./pages/client/RequestSuccess";
 import ClientNotifications from "./pages/client/Notifications";
 import ProviderNotifications from "./pages/provider/Notifications";
 
+// ✅ Admin pages (lo de tu compa)
+import Dashboard from "./pages/admin/Dashboard";
+import Bookings from "./pages/admin/Bookings";
+import BookingDetails from "./pages/admin/BookingDetails";
+import Reviews from "./pages/admin/Reviews";
+import ReviewDetails from "./pages/admin/ReviewDetails";
+import Metrics from "./pages/admin/Metrics";
+import Users from "./pages/admin/Users";
+import UserDetails from "./pages/admin/UserDetails";
+import Services from "./pages/admin/Services";
+import ServiceDetails from "./pages/admin/ServiceDetails";
+
 export default function App() {
   const { loading, user, role, profileLoading } = useAuth();
   const location = useLocation();
@@ -296,6 +308,8 @@ export default function App() {
             </RequireAuth>
           }
         />
+
+        {/* ✅ Admin layout + rutas internas */}
         <Route
           path="/admin/*"
           element={
@@ -303,7 +317,33 @@ export default function App() {
               <AdminLayout />
             </RequireAuth>
           }
-        />
+        >
+          {/* Dashboard */}
+          <Route index element={<Dashboard />} />
+          <Route path="dashboard" element={<Dashboard />} />
+
+          {/* Users */}
+          <Route path="users" element={<Users />} />
+          <Route path="users/:id" element={<UserDetails />} />
+
+          {/* Bookings */}
+          <Route path="bookings" element={<Bookings />} />
+          <Route path="bookings/:id" element={<BookingDetails />} />
+
+          {/* Reviews */}
+          <Route path="reviews" element={<Reviews />} />
+          <Route path="reviews/:id" element={<ReviewDetails />} />
+
+          {/* Services */}
+          <Route path="services" element={<Services />} />
+          <Route path="services/:id" element={<ServiceDetails />} />
+
+          {/* Metrics */}
+          <Route path="metrics" element={<Metrics />} />
+
+          {/* opcional: fallback interno del admin */}
+          <Route path="*" element={<Navigate to="/admin" replace />} />
+        </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

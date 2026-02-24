@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { loginUser, loginWithGoogle } from "../../services/auth";
+import { isAdmin } from "../../services/adminAccess";
 import { Icon as IconifyIcon } from "@iconify/react";
 
 export default function Login() {
@@ -10,7 +11,6 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -21,7 +21,17 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await loginUser(email.trim(), password);
+      // ✅ mantenemos tu login, pero capturamos el resultado para chequear admin
+      const userCredential = await loginUser(email.trim(), password);
+      const user = userCredential?.user;
+
+      // 👑 admin → directo al panel
+      if (user && isAdmin(user)) {
+        navigate("/admin/dashboard", { replace: true });
+        return;
+      }
+
+      // 👤 flujo normal
       navigate("/", { replace: true });
     } catch (err) {
       setErrorMsg(err?.message || "Error al iniciar sesión.");
@@ -127,10 +137,14 @@ export default function Login() {
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full grid place-items-center text-black/35 hover:text-black/55 transition"
-                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  aria-label={
+                    showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+                  }
                 >
                   <IconifyIcon
-                    icon={showPassword ? "mdi:eye-off-outline" : "mdi:eye-outline"}
+                    icon={
+                      showPassword ? "mdi:eye-off-outline" : "mdi:eye-outline"
+                    }
                     className="h-5 w-5"
                   />
                 </button>

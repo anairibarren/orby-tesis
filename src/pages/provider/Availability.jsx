@@ -1222,14 +1222,6 @@ export default function ProviderAvailability() {
                   Vas a eliminar <b>{fmtHHMM(deleteTarget?.start_time)}–{fmtHHMM(deleteTarget?.end_time)}</b>. Esta acción no se puede deshacer.
                 </p>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setSheetView("day")}
-                className="h-10 px-4 rounded-full bg-black/[0.04] border border-black/10 text-[12px] font-semibold text-black/60 active:scale-[0.98] transition"
-              >
-                Volver
-              </button>
             </div>
 
             <div className="mt-5 grid gap-2">
