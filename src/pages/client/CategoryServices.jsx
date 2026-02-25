@@ -47,8 +47,11 @@ function getServiceIcon(name = "", category = "") {
 
 function RowIcon({ icon }) {
   return (
-    <span className="h-[44px] w-[44px] rounded-full bg-[#D5E0F2] grid place-items-center">
-      <IconifyIcon icon={icon} className="h-[22px] w-[22px] text-[#2A4691]" />
+    <span
+      className="h-[44px] w-[44px] rounded-full grid place-items-center"
+      style={{ background: "rgba(44,72,148,0.18)" }} // mismo fondo que categorías
+    >
+      <IconifyIcon icon={icon} className="h-[22px] w-[22px]" style={{ color: "#1E2F5D" }} />
     </span>
   );
 }

@@ -667,7 +667,10 @@ async function onShare() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
+      <div
+        className="min-h-screen bg-[#F5F5F5] overflow-x-hidden"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >      
       {/* ✅ wrapper mobile-first: centra y limita el ancho + paddings seguros */}
       <div
         className="mx-auto w-full max-w-[520px]"
@@ -685,6 +688,7 @@ async function onShare() {
             type="button"
             onClick={goBack}
             className="absolute left-0 top-4 sm:top-6 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.06)] grid place-items-center"
+            style={{ top: "calc(env(safe-area-inset-top) + 16px)" }}
             aria-label="Volver"
             title="Volver"
           >
@@ -692,7 +696,10 @@ async function onShare() {
           </button>
 
           {/* share/fav */}
-          <div className="absolute right-0 top-4 sm:top-6 flex items-center gap-2">
+          <div
+              className="absolute right-0 flex items-center gap-2"
+              style={{ top: "calc(env(safe-area-inset-top) + 16px)" }}
+            >
             <button
               type="button"
               onClick={onShare}

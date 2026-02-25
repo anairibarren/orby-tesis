@@ -397,7 +397,7 @@ export default function Home() {
       {/* Populares */}
       <div className="mt-6 relative z-10">
         <div className="flex items-center justify-between">
-          <h2 className="text-[18px] font-extrabold text-[#3D3D3D]">Servicios populares</h2>
+          <h2 className="text-[18px] font-extrabold text-[#3D3D3D]">Novedades en servicios</h2>
         </div>
 
         {err && <p className="mt-3 text-sm text-red-600">{err}</p>}

@@ -531,10 +531,16 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F5]">
-      {/* ✅ quitamos overflow-x-hidden acá para no recortar sombras */}
-      <div className="w-full px-6 pt-[40px] pb-6 box-border">
-        {/* ✅ ESTE era el que te cortaba la sombra: NO overflow-x-hidden */}
-        <div className="mx-auto w-full max-w-[460px]">
+      {/* ✅ Wrapper adaptado: safe-area top/left/right + espacio para bottom nav */}
+      <div
+        className="w-full box-border pb-[calc(110px+env(safe-area-inset-bottom))]"
+        style={{
+          paddingTop: "calc(28px + env(safe-area-inset-top))",
+          paddingLeft: "max(24px, env(safe-area-inset-left))",
+          paddingRight: "max(24px, env(safe-area-inset-right))",
+        }}
+      >
+        <div className="mx-auto w-full max-w-[520px]">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-[22px] font-extrabold text-[#3D3D3D] leading-tight">Perfil</h1>
@@ -610,7 +616,8 @@ export default function Profile() {
             />
           </div>
 
-          <div className="mt-4 overflow-visible pb-[max(18px,env(safe-area-inset-bottom))]">
+          {/* ✅ sin padding extra acá (ya lo da el wrapper) */}
+          <div className="mt-4 overflow-visible">
             <div className="pt-2 pb-3 overflow-visible">
               <button
                 type="button"
