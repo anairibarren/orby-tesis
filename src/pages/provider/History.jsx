@@ -376,14 +376,6 @@ export default function History() {
               ))
             )}
           </div>
-
-          <button
-            type="button"
-            onClick={fetchHistory}
-            className="mt-4 w-full h-[52px] rounded-full bg-white border border-black/10 text-[#3D3D3D] text-[14px] font-extrabold shadow-[0_10px_22px_rgba(0,0,0,0.06)] active:scale-[0.99] transition"
-          >
-            Actualizar
-          </button>
         </div>
       </div>
     </div>

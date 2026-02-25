@@ -297,8 +297,7 @@ export default function Reviews() {
           aria-label="Filtros"
           title="Filtros"
         >
-          <Icon icon="mdi:tune-variant" className="h-6 w-6 text-black/45" />
-          {activeFiltersCount > 0 && (
+          <Icon icon="mdi:filter-variant" className="h-6 w-6 text-black/60" />          {activeFiltersCount > 0 && (
             <span className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 rounded-full bg-[#1E2F5D] text-white text-[11px] font-extrabold grid place-items-center border border-white">
               {activeFiltersCount}
             </span>
