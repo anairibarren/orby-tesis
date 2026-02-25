@@ -105,6 +105,7 @@ function RolePill({ role }) {
   );
 }
 
+/* ✅ FIX: value ya NO es truncate, wrapea bien en pantallas chicas */
 function InfoRow({ icon, label, value }) {
   return (
     <div className="flex items-start gap-3 py-3">
@@ -114,33 +115,50 @@ function InfoRow({ icon, label, value }) {
 
       <div className="flex-1 min-w-0">
         <p className="text-[12px] font-semibold text-black/40">{label}</p>
-        <p className="mt-0.5 text-[14px] font-semibold text-[#3D3D3D] truncate">{value || "—"}</p>
+
+        <p
+          className={[
+            "mt-0.5 text-[14px] font-semibold text-[#3D3D3D]",
+            "whitespace-normal break-words leading-snug",
+            "max-w-[260px] sm:max-w-none", // ✅ evita que empuje el layout en mobile
+          ].join(" ")}
+        >
+          {value || "—"}
+        </p>
       </div>
     </div>
   );
 }
 
+/* ✅ FIX: títulos/desc con clamp (en vez de truncate) */
 function RowButton({ icon, title, desc, onClick, right }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded-[22px] bg-white shadow-[0_6px_16px_rgba(0,0,0,0.02)] p-4 xs:p-[18px] text-left active:scale-[0.99] transition box-border"
+      className="w-full rounded-[22px] bg-white shadow-[0_6px_16px_rgba(0,0,0,0.02)] p-4 sm:p-[18px] text-left active:scale-[0.99] transition box-border"
     >
-      <div className="flex items-center justify-between gap-3 min-w-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center shrink-0">
+      <div className="flex items-start justify-between gap-3 min-w-0">
+        <div className="flex items-start gap-3 min-w-0">
+          <span className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center shrink-0 mt-[2px]">
             <IconifyIcon icon={icon} className="h-5 w-5 text-black/45" />
           </span>
 
           <div className="min-w-0">
-            <p className="text-[14px] font-extrabold text-[#3D3D3D] truncate">{title}</p>
-            {desc ? <p className="mt-0.5 text-[12px] text-black/45 truncate">{desc}</p> : null}
+            <p className="text-[14px] font-extrabold text-[#3D3D3D] leading-snug line-clamp-1">
+              {title}
+            </p>
+
+            {desc ? (
+              <p className="mt-0.5 text-[12px] text-black/45 leading-snug line-clamp-2">
+                {desc}
+              </p>
+            ) : null}
           </div>
         </div>
 
         {right ? (
-          <div className="shrink-0">{right}</div>
+          <div className="shrink-0 pt-[2px]">{right}</div>
         ) : (
           <IconifyIcon icon="mdi:chevron-right" className="h-7 w-7 text-black/25 shrink-0" />
         )}
@@ -433,8 +451,8 @@ function ProfileSkeleton() {
         <div
           className="mx-auto w-full max-w-[460px]"
           style={{
-            paddingLeft: "max(24px, env(safe-area-inset-left))",
-            paddingRight: "max(24px, env(safe-area-inset-right))",
+            paddingLeft: "max(16px, env(safe-area-inset-left))",
+            paddingRight: "max(16px, env(safe-area-inset-right))",
           }}
         >
           <div className="h-7 w-32 rounded bg-black/10 animate-pulse" />
@@ -530,21 +548,38 @@ export default function Profile() {
   if (profileLoading && !profile) return <ProfileSkeleton />;
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5]">
-      {/* ✅ Wrapper adaptado: safe-area top/left/right + espacio para bottom nav */}
+    <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
+      {/* ✅ Wrapper adaptado: safe-area + padding lateral más amigable para mobile */}
       <div
         className="w-full box-border pb-[calc(110px+env(safe-area-inset-bottom))]"
         style={{
-          paddingTop: "calc(28px + env(safe-area-inset-top))",
-          paddingLeft: "max(24px, env(safe-area-inset-left))",
-          paddingRight: "max(24px, env(safe-area-inset-right))",
+          paddingTop: "calc(24px + env(safe-area-inset-top))",
+          paddingLeft: "max(16px, env(safe-area-inset-left))",
+          paddingRight: "max(16px, env(safe-area-inset-right))",
         }}
       >
+        <style>{`
+          .line-clamp-1 {
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+          .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+        `}</style>
+
         <div className="mx-auto w-full max-w-[520px]">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-[22px] font-extrabold text-[#3D3D3D] leading-tight">Perfil</h1>
-              <p className="mt-1 text-[13px] text-black/45 leading-relaxed">Gestioná tu cuenta y preferencias</p>
+              <p className="mt-1 text-[13px] text-black/45 leading-relaxed">
+                Gestioná tu cuenta y preferencias
+              </p>
             </div>
 
             <IconButton onClick={() => setEditOpen(true)} title="Editar" disabled={!user?.id}>
@@ -616,7 +651,6 @@ export default function Profile() {
             />
           </div>
 
-          {/* ✅ sin padding extra acá (ya lo da el wrapper) */}
           <div className="mt-4 overflow-visible">
             <div className="pt-2 pb-3 overflow-visible">
               <button

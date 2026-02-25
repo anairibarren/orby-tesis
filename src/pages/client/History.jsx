@@ -300,28 +300,28 @@ export default function History() {
                 <RowSkeleton />
               </div>
             ) : err ? null : enrichedSorted.length === 0 ? (
-              <div className="w-full rounded-[22px] bg-white border border-black/10 shadow-[0_10px_22px_rgba(0,0,0,0.06)] p-5">
-                <div className="flex items-start gap-3">
-                  <span className="h-11 w-11 rounded-full bg-black/[0.04] grid place-items-center shrink-0">
-                    <IconifyIcon icon="mdi:history" className="h-6 w-6 text-black/35" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-[14px] font-extrabold text-[#3D3D3D]">No hay historial</p>
-                    <p className="mt-1 text-[12px] text-black/45 leading-relaxed">
-                      Cuando completes solicitudes, te van a aparecer acá.
-                    </p>
+                <div className="w-full flex flex-col items-center justify-center text-center pt-14 pb-10">
+                  <div className="h-16 w-16 rounded-2xl bg-black/[0.04] grid place-items-center">
+                    <IconifyIcon icon="mdi:bell-outline" className="h-7 w-7 text-black/35" />
                   </div>
-                </div>
 
-                <button
-                  type="button"
-                  onClick={() => nav("/client/categories")}
-                  className="mt-5 h-11 px-5 rounded-full bg-[#1E2F5D] text-white text-[13px] font-semibold shadow-[0_10px_22px_rgba(30,47,93,0.18)] active:scale-[0.98] transition"
-                >
-                  Explorar categorías
-                </button>
-              </div>
-            ) : (
+                  <p className="mt-6 text-[18px] font-extrabold text-[#3D3D3D]">
+                    Todavía no hiciste solicitudes
+                  </p>
+
+                  <p className="mt-2 text-[14px] text-black/45 leading-relaxed max-w-[320px]">
+                    Cuando pidas un servicio, lo vas a ver acá.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => nav("/client/categories")}
+                    className="mt-6 h-11 px-6 rounded-full bg-[#1E2F5D] text-white text-[13px] font-semibold shadow-[0_10px_22px_rgba(30,47,93,0.18)] active:scale-[0.98] transition"
+                  >
+                    Explorar categorías
+                  </button>
+                </div>
+              ) : (
               grouped.map((g) => (
                 <div key={g.key}>
                   <SectionTitle>{g.label}</SectionTitle>
@@ -353,14 +353,6 @@ export default function History() {
               ))
             )}
           </div>
-
-          <button
-            type="button"
-            onClick={fetchHistory}
-            className="mt-4 w-full h-[52px] rounded-full bg-white border border-black/10 text-[#3D3D3D] text-[14px] font-extrabold shadow-[0_10px_22px_rgba(0,0,0,0.06)] active:scale-[0.99] transition"
-          >
-            Actualizar
-          </button>
         </div>
       </div>
     </div>

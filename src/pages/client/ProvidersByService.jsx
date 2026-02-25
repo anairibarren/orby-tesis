@@ -5,6 +5,7 @@ import { Icon as IconifyIcon } from "@iconify/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { listProviderServicesByCatalogId } from "../../services/services";
 import { supabase } from "../../services/supabase";
+import { createPortal } from "react-dom";
 
 function IconButton({ onClick, title, children, className = "" }) {
   return (
@@ -59,12 +60,42 @@ function ProviderCardSkeletonB() {
 }
 
 function Sheet({ open, onClose, children }) {
-  return (
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // ✅ Bloquear scroll del body cuando abre (iOS PWA lo agradece)
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-[9999]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          {/* ✅ solo cerrar tocando fuera */}
-          <button type="button" className="absolute inset-0 bg-black/40" onClick={onClose} aria-label="Cerrar" />
+        <motion.div
+          className="fixed inset-0"
+          // ✅ z-index “absurdo” para ganarle a cualquier navbar
+          style={{ zIndex: 2147483647 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          {/* fondo / cerrar tocando fuera */}
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            onClick={onClose}
+            aria-label="Cerrar"
+          />
 
           <motion.div
             className="absolute left-0 right-0 bottom-0"
@@ -73,14 +104,20 @@ function Sheet({ open, onClose, children }) {
             exit={{ y: 40, opacity: 0 }}
             transition={{ type: "spring", stiffness: 380, damping: 34 }}
           >
-            {/* ✅ evita que el click dentro cierre */}
-            <div className="mx-auto w-full max-w-[520px] px-4 pb-6" onClick={(e) => e.stopPropagation()}>
-              <div className="rounded-[28px] bg-white shadow-2xl overflow-hidden">{children}</div>
+            {/* evita que el click dentro cierre */}
+            <div
+              className="mx-auto w-full max-w-[520px] px-4 pb-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="rounded-[28px] bg-white shadow-2xl overflow-hidden">
+                {children}
+              </div>
             </div>
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
 

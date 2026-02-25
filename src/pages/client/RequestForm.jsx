@@ -714,7 +714,10 @@ export default function ClientRequestForm() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
-      <div className="px-6 pt-[46px] pb-10">
+      <div
+          className="px-6 pb-10"
+          style={{ paddingTop: "calc(46px + env(safe-area-inset-top))" }}
+        >
         {/* Header */}
         <div className="relative flex items-center justify-center">
           <button

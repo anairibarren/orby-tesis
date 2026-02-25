@@ -667,11 +667,7 @@ async function onShare() {
   ];
 
   return (
-      <div
-        className="min-h-screen bg-[#F5F5F5] overflow-x-hidden"
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
-      >      
-      {/* ✅ wrapper mobile-first: centra y limita el ancho + paddings seguros */}
+      <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">   
       <div
         className="mx-auto w-full max-w-[520px]"
         style={{
@@ -679,51 +675,53 @@ async function onShare() {
           paddingRight: "max(12px, env(safe-area-inset-right))",
         }}
       >
-        {/* TOP AREA */}
-        <div className="relative">
-          <div className="h-[78px] sm:h-[92px] w-full bg-[#F5F5F5]" />
+     {/* TOP AREA */}
+      <div
+        className="relative"
+        style={{ paddingTop: "env(safe-area-inset-top)" }} 
+      >
+        <div className="h-[78px] sm:h-[92px] w-full bg-[#F5F5F5]" />
 
-          {/* back */}
+        {/* back */}
+        <button
+          type="button"
+          onClick={goBack}
+          className="absolute left-0 top-4 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.06)] grid place-items-center"
+          aria-label="Volver"
+          title="Volver"
+        >
+          <span className="text-[26px] leading-none">‹</span>
+        </button>
+
+        {/* share/fav */}
+        <div className="absolute right-0 top-4 flex items-center gap-2">
           <button
             type="button"
-            onClick={goBack}
-            className="absolute left-0 top-4 sm:top-6 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.06)] grid place-items-center"
-            style={{ top: "calc(env(safe-area-inset-top) + 16px)" }}
-            aria-label="Volver"
-            title="Volver"
+            onClick={onShare}
+            className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.06)] flex items-center justify-center active:scale-[0.98] transition"
+            aria-label="Compartir"
+            title="Compartir"
           >
-            <span className="text-[26px] leading-none">‹</span>
+            <IconifyIcon icon="lucide:upload" className="h-6 w-6 text-black" />
           </button>
 
-          {/* share/fav */}
-          <div
-              className="absolute right-0 flex items-center gap-2"
-              style={{ top: "calc(env(safe-area-inset-top) + 16px)" }}
-            >
-            <button
-              type="button"
-              onClick={onShare}
-              className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.06)] flex items-center justify-center active:scale-[0.98] transition"
-              aria-label="Compartir"
-              title="Compartir"
-            >
-              <IconifyIcon icon="lucide:upload" className="h-6 w-6 text-black" />
-            </button>
-
-            <button
-              type="button"
-              onClick={toggleFavorite}
-              disabled={favLoading}
-              className={[
-                "h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.06)] flex items-center justify-center active:scale-[0.98] transition",
-                favLoading ? "opacity-60" : "",
-              ].join(" ")}
-              aria-label={isFav ? "Quitar de favoritos" : "Agregar a favoritos"}
-              title={isFav ? "Quitar de favoritos" : "Agregar a favoritos"}
-            >
-              <IconifyIcon icon={isFav ? "ph:heart-fill" : "ph:heart"} className={["h-6 w-6", isFav ? "text-red-500" : "text-black"].join(" ")} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={toggleFavorite}
+            disabled={favLoading}
+            className={[
+              "h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.06)] flex items-center justify-center active:scale-[0.98] transition",
+              favLoading ? "opacity-60" : "",
+            ].join(" ")}
+            aria-label={isFav ? "Quitar de favoritos" : "Agregar a favoritos"}
+            title={isFav ? "Quitar de favoritos" : "Agregar a favoritos"}
+          >
+            <IconifyIcon
+              icon={isFav ? "ph:heart-fill" : "ph:heart"}
+              className={["h-6 w-6", isFav ? "text-red-500" : "text-black"].join(" ")}
+            />
+          </button>
+        </div>
 
           {/* HEADER CARD */}
           <div className="pt-1">
