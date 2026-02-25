@@ -316,6 +316,66 @@ function Sheet({ open, onClose, children }) {
   );
 }
 
+/* ---------------- Reject sheet (nuevo) ---------------- */
+function RejectRequestSheet({ open, serviceName, onClose, onConfirm, busy }) {
+  return (
+    <Sheet open={open} onClose={onClose}>
+      <div className="pt-3 flex justify-center">
+        <div className="h-1.5 w-14 rounded-full bg-black/10" />
+      </div>
+
+      <div className="relative px-6 pt-5 pb-4">
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={busy}
+          className={[
+            "absolute right-4 top-4 h-12 w-12 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition",
+            busy ? "opacity-60 cursor-not-allowed active:scale-100" : "",
+          ].join(" ")}
+          aria-label="Cerrar"
+          title="Cerrar"
+        >
+          <IconifyIcon icon="mdi:close" className="h-6 w-6 text-black/40" />
+        </button>
+
+        <h3 className="text-[22px] font-extrabold text-[#3D3D3D]">Rechazar solicitud</h3>
+
+        <p className="mt-2 text-[14px] text-black/50 leading-snug">
+          ¿Seguro que querés rechazar la solicitud del servicio <b>{serviceName}</b>?
+          <br />
+          <span className="text-[12px] text-black/45">
+            Si había un horario bloqueado, se libera automáticamente.
+          </span>
+        </p>
+      </div>
+
+      <div className="px-6 pb-6">
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={busy}
+          className={[
+            "w-full h-[54px] rounded-full text-white text-[16px] font-extrabold shadow-[0_10px_24px_rgba(220,38,38,0.18)] active:scale-[0.99] transition",
+            busy ? "bg-red-600/60" : "bg-red-600",
+          ].join(" ")}
+        >
+          {busy ? "Rechazando..." : "Rechazar"}
+        </button>
+
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={busy}
+          className="mt-3 w-full h-[54px] rounded-full bg-white border border-black/10 text-[#3D3D3D] text-[16px] font-extrabold active:scale-[0.99] transition"
+        >
+          Volver
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
 /* ---------------- Cancel sheet ---------------- */
 function CancelTurnSheet({ open, serviceName, onClose, onConfirm, busy, reason, setReason }) {
   return (
@@ -1188,39 +1248,13 @@ export default function Requests() {
         </div>
       </div>
 
-      {rejectOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6">
-          <button type="button" className="absolute inset-0 bg-black/50" onClick={closeReject} aria-label="Cerrar" />
-
-          <div className="relative w-full max-w-lg rounded-[22px] bg-white shadow-2xl p-6 border border-black/10">
-            <h3 className="text-[18px] font-extrabold text-[#3D3D3D]">Rechazar solicitud</h3>
-
-            <p className="mt-2 text-[13px] text-black/60">
-              ¿Seguro que querés rechazar la solicitud del servicio <b>{selectedName}</b>?
-              <br />
-              <span className="text-[12px] text-black/45">Si había un horario bloqueado, se libera automáticamente.</span>
-            </p>
-
-            <div className="mt-6 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={closeReject}
-                className="h-11 rounded-full bg-white border border-black/10 px-5 text-[13px] font-extrabold text-[#3D3D3D] active:scale-[0.98] transition"
-              >
-                Cancelar
-              </button>
-
-              <button
-                type="button"
-                onClick={confirmReject}
-                className="h-11 rounded-full bg-[#1E2F5D] px-6 text-[13px] font-extrabold text-white shadow-[0_6px_18px_rgba(30,47,93,0.18)] active:scale-[0.98] transition"
-              >
-                Rechazar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RejectRequestSheet
+        open={rejectOpen}
+        serviceName={selectedName}
+        onClose={closeReject}
+        onConfirm={confirmReject}
+        busy={busyId === selectedReq?.id}
+      />
 
       <CancelTurnSheet
         open={cancelOpen}
