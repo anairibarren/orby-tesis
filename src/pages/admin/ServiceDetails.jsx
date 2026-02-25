@@ -1,4 +1,4 @@
-//src/pages/admin/ServiceDetail
+// src/pages/admin/ServiceDetail.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, Navigate } from "react-router-dom";
 import { supabase } from "../../services/supabase";
@@ -48,7 +48,7 @@ function InfoRow({ label, value }) {
 }
 
 /* ================= SHEET (bottom) ================= */
- function Sheet({ open, onClose, title, subtitle, children, disabledClose = false }) {
+function Sheet({ open, onClose, title, subtitle, children, disabledClose = false }) {
   if (!open) return null;
 
   return createPortal(
@@ -70,13 +70,9 @@ function InfoRow({ label, value }) {
           <div className="px-6 pt-4 pb-5">
             <div className="flex items-start gap-3">
               <div className="min-w-0">
-                <h3 className="text-[16px] font-extrabold text-[#3D3D3D]">
-                  {title}
-                </h3>
+                <h3 className="text-[16px] font-extrabold text-[#3D3D3D]">{title}</h3>
                 {subtitle ? (
-                  <p className="mt-1 text-[12px] text-black/45 leading-snug">
-                    {subtitle}
-                  </p>
+                  <p className="mt-1 text-[12px] text-black/45 leading-snug">{subtitle}</p>
                 ) : null}
               </div>
             </div>
@@ -152,21 +148,16 @@ export default function ServiceDetails() {
       .eq("is_active", true)
       .order("base_price", { ascending: true });
 
-    const { data: categoriesData } = await supabase
-      .from("service_catalog")
-      .select("category");
+    const { data: categoriesData } = await supabase.from("service_catalog").select("category");
 
     setService(serviceData);
     setProviders(providersData || []);
 
-    const uniqueCategories = [
-      ...new Set((categoriesData || []).map((c) => c.category)),
-    ];
+    const uniqueCategories = [...new Set((categoriesData || []).map((c) => c.category))];
     setCategories(uniqueCategories);
 
     setName(serviceData.name);
     setCategory(serviceData.category);
-
     setLoading(false);
   }
 
@@ -212,6 +203,13 @@ export default function ServiceDetails() {
     ? computedProviders
     : computedProviders.slice(0, PROVIDERS_PREVIEW);
 
+  // ✅ CAMBIO 1: si es por cotización (precio 0 / null), no mostrar "$0"
+  function priceLabel(price) {
+    const n = Number(price);
+    if (!Number.isFinite(n) || n <= 0) return "Por cotización";
+    return `$${n.toLocaleString("es-AR")}`;
+  }
+
   /* ================= ACTIONS ================= */
   async function handleUpdateService(e) {
     e.preventDefault();
@@ -231,7 +229,7 @@ export default function ServiceDetails() {
 
     if (error) {
       console.error(error);
-      toast.error("Error al actualizar servicio");
+      toast.error("Error al actualizar", error.message);
       return;
     }
 
@@ -252,10 +250,7 @@ export default function ServiceDetails() {
 
     setDeleting(true);
 
-    const { error } = await supabase
-      .from("service_catalog")
-      .delete()
-      .eq("id", id);
+    const { error } = await supabase.from("service_catalog").delete().eq("id", id);
 
     setDeleting(false);
 
@@ -281,9 +276,7 @@ export default function ServiceDetails() {
   if (notFound) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#F5F5F5]">
-        <h2 className="text-xl font-bold text-[#1E2F5D] mb-2">
-          Servicio no encontrado
-        </h2>
+        <h2 className="text-xl font-bold text-[#1E2F5D] mb-2">Servicio no encontrado</h2>
         <p className="text-sm text-black/50 mb-6">
           El servicio que estás buscando no existe o fue eliminado.
         </p>
@@ -312,9 +305,7 @@ export default function ServiceDetails() {
             <span className="text-2xl leading-none">‹</span>
           </button>
 
-          <h1 className="text-[18px] font-extrabold text-[#3D3D3D]">
-            Detalle del servicio
-          </h1>
+          <h1 className="text-[18px] font-extrabold text-[#3D3D3D]">Detalle del servicio</h1>
 
           {/* ⋯ Menu (abre Sheet) */}
           <div className="absolute right-0">
@@ -340,11 +331,9 @@ export default function ServiceDetails() {
         {/* Prestadores */}
         <CardShell className="p-5">
           <div className="flex items-center justify-between gap-3">
-            <SectionTitle
-              icon="mdi:account-group-outline"
-              title="Prestadores que lo ofrecen"
-            />
+            <SectionTitle icon="mdi:account-group-outline" title="Prestadores que lo ofrecen" />
 
+            {/* ✅ CAMBIO 2: ya tenías "Ver más" para evitar lista enorme (se mantiene) */}
             {computedProviders.length > PROVIDERS_PREVIEW && (
               <button
                 type="button"
@@ -371,11 +360,11 @@ export default function ServiceDetails() {
                   key={p.id}
                   className="flex items-center justify-between rounded-[18px] bg-black/[0.03] px-4 py-3"
                 >
-                  <span className="text-sm font-medium text-black/70 truncate">
-                    {p.name}
-                  </span>
+                  <span className="text-sm font-medium text-black/70 truncate">{p.name}</span>
+
+                  {/* ✅ CAMBIO 1 aplicado acá */}
                   <span className="text-sm font-extrabold text-[#3D3D3D]">
-                    ${Number(p.price).toLocaleString("es-AR")}
+                    {priceLabel(p.price)}
                   </span>
                 </div>
               ))}
@@ -402,6 +391,8 @@ export default function ServiceDetails() {
             type="button"
             onClick={() => {
               setShowOptionsSheet(false);
+              setName(service?.name || "");
+              setCategory(service?.category || "");
               setShowEditModal(true);
             }}
             className="w-full h-[54px] rounded-full border border-black/10 text-[14px] font-extrabold active:scale-[0.99] transition inline-flex items-center justify-center gap-2 bg-black/[0.04] text-[#3D3D3D]"
@@ -428,9 +419,7 @@ export default function ServiceDetails() {
             disabled={hasProviders}
             className={[
               "w-full h-[54px] rounded-full border border-black/10 text-[14px] font-extrabold active:scale-[0.99] transition inline-flex items-center justify-center gap-2",
-              hasProviders
-                ? "bg-black/[0.04] text-black/40"
-                : "bg-[#FFECEE] text-[#9B1C1C]",
+              hasProviders ? "bg-black/[0.04] text-black/40" : "bg-[#FFECEE] text-[#9B1C1C]",
             ].join(" ")}
           >
             <Icon
@@ -449,111 +438,115 @@ export default function ServiceDetails() {
       </Sheet>
 
       {/* MODAL EDITAR (estilo como tu imagen) */}
-     {showEditModal && (
-        <div className="fixed inset-0 z-[9999]">
-          {/* overlay */}
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setShowEditModal(false)}
-            aria-label="Cerrar"
-          />
+      {showEditModal &&
+        createPortal(
+          <div className="fixed inset-0 z-[2147483647]">
+            {/* overlay */}
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/40"
+              onClick={() => setShowEditModal(false)}
+              aria-label="Cerrar"
+            />
 
-          {/* sheet con márgenes */}
-          <div className="absolute left-0 right-0 bottom-0 px-4 pb-6">
-            <form
-              onSubmit={handleUpdateService}
-              className="mx-auto max-w-[520px] rounded-[28px] bg-white shadow-2xl overflow-hidden border border-black/10 animate-sheetUp"
+            {/* sheet con safe-area para iOS */}
+            <div
+              className="absolute left-0 right-0 bottom-0 px-4"
+              style={{
+                paddingBottom: "calc(24px + env(safe-area-inset-bottom))",
+                paddingTop: 12,
+              }}
             >
-              {/* handle */}
-              <div className="pt-3 flex justify-center">
-                <div className="h-1.5 w-14 rounded-full bg-black/10" />
-              </div>
+              <form
+                onSubmit={handleUpdateService}
+                className="mx-auto max-w-[520px] rounded-[28px] bg-white shadow-2xl overflow-hidden border border-black/10 animate-sheetUp"
+              >
+                {/* handle */}
+                <div className="pt-3 flex justify-center">
+                  <div className="h-1.5 w-14 rounded-full bg-black/10" />
+                </div>
 
-              {/* header */}
-              <div className="px-6 pt-4 pb-4">
-                <h2 className="text-[18px] font-extrabold text-[#3D3D3D]">
-                  Editar servicio
-                </h2>
-                <p className="mt-1 text-[12px] text-black/45">
-                  Mantené la información actualizada.
-                </p>
-              </div>
+                {/* header */}
+                <div className="px-6 pt-4 pb-4">
+                  <h2 className="text-[18px] font-extrabold text-[#3D3D3D]">Editar servicio</h2>
+                  <p className="mt-1 text-[12px] text-black/45">Mantené la información actualizada.</p>
+                </div>
 
-              {/* content */}
-              <div className="px-6 pb-4 space-y-3">
-                {/* Nombre */}
-                <div className="rounded-[18px] bg-black/[0.03] px-4 py-3">
-                  <div className="flex items-center gap-2 text-black/45">
-                    <Icon icon="mdi:briefcase-outline" className="h-5 w-5" />
-                    <p className="text-[12px] font-semibold">
-                      Nombre del servicio <span className="text-red-500">*</span>
-                    </p>
+                {/* content */}
+                <div className="px-6 pb-4 space-y-3">
+                  {/* Nombre */}
+                  <div className="rounded-[18px] bg-black/[0.03] px-4 py-3">
+                    <div className="flex items-center gap-2 text-black/45">
+                      <Icon icon="mdi:briefcase-outline" className="h-5 w-5" />
+                      <p className="text-[12px] font-semibold">
+                        Nombre del servicio <span className="text-red-500">*</span>
+                      </p>
+                    </div>
+
+                    <input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="mt-2 w-full bg-transparent text-[16px] font-extrabold text-[#3D3D3D] outline-none placeholder:text-black/30"
+                      placeholder="Ingresá el nombre"
+                    />
                   </div>
 
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="mt-2 w-full bg-transparent text-[16px] font-extrabold text-[#3D3D3D] outline-none placeholder:text-black/30"
-                    placeholder="Ingresá el nombre"
-                  />
-                </div>
+                  {/* Categoría */}
+                  <div className="rounded-[18px] bg-black/[0.03] px-4 py-3">
+                    <div className="flex items-center gap-2 text-black/45">
+                      <Icon icon="mdi:tag-outline" className="h-5 w-5" />
+                      <p className="text-[12px] font-semibold">
+                        Categoría <span className="text-red-500">*</span>
+                      </p>
+                    </div>
 
-                {/* Categoría */}
-                <div className="rounded-[18px] bg-black/[0.03] px-4 py-3">
-                  <div className="flex items-center gap-2 text-black/45">
-                    <Icon icon="mdi:tag-outline" className="h-5 w-5" />
-                    <p className="text-[12px] font-semibold">
-                      Categoría <span className="text-red-500">*</span>
-                    </p>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="mt-2 w-full bg-transparent text-[16px] font-extrabold text-[#3D3D3D] outline-none appearance-none"
+                    >
+                      <option value="">Seleccionar categoría</option>
+                      {categories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="mt-2 w-full bg-transparent text-[16px] font-extrabold text-[#3D3D3D] outline-none appearance-none"
-                  >
-                    <option value="">Seleccionar categoría</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
                 </div>
-              </div>
 
-              {/* footer */}
-              <div className="px-6 pb-6 pt-3 border-t border-black/10 bg-white">
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowEditModal(false)}
-                    className="h-[54px] rounded-full bg-white border border-black/10 text-[14px] font-extrabold text-[#3D3D3D] active:scale-[0.99] transition"
-                  >
-                    Cancelar
-                  </button>
+                {/* footer */}
+                <div className="px-6 pb-6 pt-3 border-t border-black/10 bg-white">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowEditModal(false)}
+                      className="h-[54px] rounded-full bg-white border border-black/10 text-[14px] font-extrabold text-[#3D3D3D] active:scale-[0.99] transition"
+                    >
+                      Cancelar
+                    </button>
 
-                  <button
-                    type="submit"
-                    className="h-[54px] rounded-full bg-[#1E2F5D] text-white text-[14px] font-extrabold shadow-[0_10px_24px_rgba(30,47,93,0.22)] active:scale-[0.99] transition"
-                  >
-                    Guardar
-                  </button>
+                    <button
+                      type="submit"
+                      className="h-[54px] rounded-full bg-[#1E2F5D] text-white text-[14px] font-extrabold shadow-[0_10px_24px_rgba(30,47,93,0.22)] active:scale-[0.99] transition"
+                    >
+                      Guardar
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </form>
-          </div>
+              </form>
+            </div>
 
-          <style>{`
-            @keyframes sheetUp {
-              from { transform: translateY(16px); opacity: 0; }
-              to   { transform: translateY(0); opacity: 1; }
-            }
-            .animate-sheetUp { animation: sheetUp .18s ease-out both; }
-          `}</style>
-        </div>
-      )}
+            <style>{`
+              @keyframes sheetUp {
+                from { transform: translateY(16px); opacity: 0; }
+                to   { transform: translateY(0); opacity: 1; }
+              }
+              .animate-sheetUp { animation: sheetUp .18s ease-out both; }
+            `}</style>
+          </div>,
+          document.body
+        )}
 
       {/* SHEET BORRAR (botones en 14) */}
       <Sheet

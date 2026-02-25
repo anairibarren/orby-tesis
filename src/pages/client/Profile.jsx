@@ -559,16 +559,22 @@ export default function Profile() {
   if (profileLoading && !profile) return <ProfileSkeleton />;
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">
+    <div className="h-[100dvh] bg-[#F5F5F5] overflow-x-hidden overflow-y-auto overscroll-contain">
       {/* ✅ Wrapper adaptado: safe-area + padding lateral más amigable para mobile */}
       <div
-        className="w-full box-border pb-[calc(110px+env(safe-area-inset-bottom))]"
-        style={{
-          paddingTop: "calc(24px + env(safe-area-inset-top))",
-          paddingLeft: "max(16px, env(safe-area-inset-left))",
-          paddingRight: "max(16px, env(safe-area-inset-right))",
-        }}
-      >
+          className="w-full box-border"
+          style={{
+            // ✅ menos aire arriba
+            paddingTop: "calc(12px + env(safe-area-inset-top))",
+
+            // ✅ laterales iguales
+            paddingLeft: "max(16px, env(safe-area-inset-left))",
+            paddingRight: "max(16px, env(safe-area-inset-right))",
+
+            // ✅ “corte” del scroll + nunca se tapa con navbar
+            paddingBottom: "calc(140px + env(safe-area-inset-bottom))",
+          }}
+        >
         <style>{`
           .line-clamp-1 {
             display: -webkit-box;

@@ -557,15 +557,38 @@ export default function UserDetails() {
                     }
                     className="mt-2 w-full bg-transparent text-[16px] font-extrabold text-[#3D3D3D] outline-none appearance-none"
                   >
-                    <option value="">Seleccionar barrio</option>
-                    <option value="Florida">Florida</option>
-                    <option value="Florida Oeste">Florida Oeste</option>
-                    <option value="La Lucila">La Lucila</option>
-                    <option value="Olivos">Olivos</option>
-                    <option value="Vicente López">Vicente López</option>
-                    <option value="Carapachay">Carapachay</option>
-                    <option value="Munro">Munro</option>
-                    <option value="Villa Adelina">Villa Adelina</option>
+                    {(() => {
+                    const current = String(formValues.neighborhood || "").trim();
+                    const LIST = [
+                      "Vicente López",
+                      "Olivos",
+                      "Florida",
+                      "Florida Oeste",
+                      "La Lucila",
+                      "Villa Martelli",
+                      "Munro",
+                      "Carapachay",
+                      "Villa Adelina",
+                    ];
+
+                    const hasCurrent = current && LIST.includes(current);
+
+                    return (
+                      <>
+                        {!current ? (
+                          <option value="">Seleccionar barrio</option>
+                        ) : !hasCurrent ? (
+                          <option value={current}>{current}</option>
+                        ) : null}
+
+                        {LIST.map((b) => (
+                          <option key={b} value={b}>
+                            {b}
+                          </option>
+                        ))}
+                      </>
+                    );
+                  })()}
                   </select>
                 </div>
               </div>
