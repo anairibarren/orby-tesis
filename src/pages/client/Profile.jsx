@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon as IconifyIcon } from "@iconify/react";
 import { AnimatePresence, motion } from "framer-motion";
+import { createPortal } from "react-dom";
 
 import { useAuth } from "../../hooks/useAuth";
 import { logoutUser } from "../../services/auth";
@@ -346,107 +347,111 @@ function EditProfileModal({ open, onClose, onSave, busy, initial }) {
     });
   }
 
-  return (
-  <AnimatePresence>
-    {open && (
-      <>
-        {/* BACKDROP (overlay) */}
-        <motion.button
-          type="button"
-          className="fixed inset-0 bg-black/50 z-[2147483646] transform-gpu [transform:translateZ(0)]"
-          onClick={() => !busy && onClose?.()}
-          aria-label="Cerrar"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        />
+  // ✅ iOS PWA FIX: render en portal para escapar stacking contexts de la navbar
+  if (typeof document === "undefined") return null;
 
-        {/* BOTTOM SHEET */}
-        <motion.div
-          className="fixed inset-x-0 bottom-0 w-full z-[2147483647] transform-gpu [transform:translateZ(0)]"
-          initial={{ y: 40, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 40, opacity: 0 }}
-          transition={{ type: "spring", stiffness: 420, damping: 34 }}
-        >
-          <div className="mx-auto w-full max-w-[460px] px-4">
-            <div className="rounded-t-[28px] bg-white shadow-2xl px-5 pt-4 pb-6 overflow-x-hidden">
-              <div className="flex justify-center">
-                <div className="h-1.5 w-12 rounded-full bg-black/10" />
-              </div>
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <>
+          {/* BACKDROP (overlay) */}
+          <motion.button
+            type="button"
+            className="fixed inset-0 bg-black/50 z-[2147483646] transform-gpu [transform:translateZ(0)]"
+            onClick={() => !busy && onClose?.()}
+            aria-label="Cerrar"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          />
 
-              <div className="mt-4 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-[18px] font-extrabold text-[#3D3D3D]">Editar perfil</h3>
-                  <p className="mt-1 text-[12px] text-black/50">Mantené tu perfil actualizado.</p>
+          {/* BOTTOM SHEET */}
+          <motion.div
+            className="fixed inset-x-0 bottom-0 w-full z-[2147483647] transform-gpu [transform:translateZ(0)]"
+            initial={{ y: 40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 40, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 420, damping: 34 }}
+          >
+            <div className="mx-auto w-full max-w-[460px] px-4">
+              <div className="rounded-t-[28px] bg-white shadow-2xl px-5 pt-4 pb-6 overflow-x-hidden">
+                <div className="flex justify-center">
+                  <div className="h-1.5 w-12 rounded-full bg-black/10" />
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => !busy && onClose?.()}
-                  className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition disabled:opacity-60"
-                  disabled={busy}
-                  aria-label="Cerrar"
-                  title="Cerrar"
-                >
-                  <IconifyIcon icon="mdi:close" className="h-6 w-6 text-black/40" />
-                </button>
-              </div>
-
-              <div className="mt-5 grid gap-3 pr-1">
-                <InputPill
-                  label="Nombre y apellido"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Escribí tu nombre"
-                  disabled={busy}
-                  icon="mdi:account-outline"
-                />
-
-                <NeighborhoodCombobox
-                  value={neighborhood}
-                  onChange={(v) => setNeighborhood(v)}
-                  disabled={busy}
-                />
-
-                {neighborhoodTouched && norm(neighborhood).length > 0 && !neighborhoodValid ? (
-                  <div className="rounded-[18px] bg-red-50 px-4 py-3">
-                    <p className="text-[12px] font-semibold text-red-700">
-                      Ese barrio no está dentro de Vicente López.
-                    </p>
+                <div className="mt-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-[18px] font-extrabold text-[#3D3D3D]">Editar perfil</h3>
+                    <p className="mt-1 text-[12px] text-black/50">Mantené tu perfil actualizado.</p>
                   </div>
-                ) : null}
-              </div>
 
-              <div className="mt-5 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => !busy && onClose?.()}
-                  disabled={busy}
-                  className="flex-1 h-[56px] rounded-full bg-black/[0.04] text-[14px] font-extrabold text-black/70 active:scale-[0.99] transition"
-                >
-                  Cancelar
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => !busy && onClose?.()}
+                    className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition disabled:opacity-60"
+                    disabled={busy}
+                    aria-label="Cerrar"
+                    title="Cerrar"
+                  >
+                    <IconifyIcon icon="mdi:close" className="h-6 w-6 text-black/40" />
+                  </button>
+                </div>
 
-                <button
-                  type="button"
-                  onClick={trySave}
-                  disabled={!canSave}
-                  className={[
-                    "flex-1 h-[56px] rounded-full text-[14px] font-extrabold text-white shadow-[0_10px_24px_rgba(30,47,93,0.22)] active:scale-[0.99] transition",
-                    canSave ? "bg-[#1E2F5D]" : "bg-[#1E2F5D]/50",
-                  ].join(" ")}
-                >
-                  {busy ? "Guardando..." : "Guardar"}
-                </button>
+                <div className="mt-5 grid gap-3 pr-1">
+                  <InputPill
+                    label="Nombre y apellido"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Escribí tu nombre"
+                    disabled={busy}
+                    icon="mdi:account-outline"
+                  />
+
+                  <NeighborhoodCombobox
+                    value={neighborhood}
+                    onChange={(v) => setNeighborhood(v)}
+                    disabled={busy}
+                  />
+
+                  {neighborhoodTouched && norm(neighborhood).length > 0 && !neighborhoodValid ? (
+                    <div className="rounded-[18px] bg-red-50 px-4 py-3">
+                      <p className="text-[12px] font-semibold text-red-700">
+                        Ese barrio no está dentro de Vicente López.
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="mt-5 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => !busy && onClose?.()}
+                    disabled={busy}
+                    className="flex-1 h-[56px] rounded-full bg-black/[0.04] text-[14px] font-extrabold text-black/70 active:scale-[0.99] transition"
+                  >
+                    Cancelar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={trySave}
+                    disabled={!canSave}
+                    className={[
+                      "flex-1 h-[56px] rounded-full text-[14px] font-extrabold text-white shadow-[0_10px_24px_rgba(30,47,93,0.22)] active:scale-[0.99] transition",
+                      canSave ? "bg-[#1E2F5D]" : "bg-[#1E2F5D]/50",
+                    ].join(" ")}
+                  >
+                    {busy ? "Guardando..." : "Guardar"}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </motion.div>
-      </>
-    )}
-  </AnimatePresence>
-);
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>,
+    document.body
+  );
 }
 
 /* ---------------- Skeleton ---------------- */

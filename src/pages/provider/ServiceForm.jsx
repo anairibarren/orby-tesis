@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon as IconifyIcon } from "@iconify/react";
 import { AnimatePresence, motion } from "framer-motion";
+import { createPortal } from "react-dom";
 
 import { useAuth } from "../../hooks/useAuth";
 import { createProviderService, listCatalogServices } from "../../services/services";
@@ -68,99 +69,102 @@ function FieldButton({ label, value, placeholder, onClick, disabled }) {
 
 /** Bottom sheet selector (estilado, mobile-friendly) */
 function SelectSheet({ open, title, subtitle, options, selectedValue, onClose, onSelect }) {
-  return (
-  <AnimatePresence>
-    {open && (
-      <>
-        {/* BACKDROP */}
-        <motion.button
-          type="button"
-          className="fixed inset-0 bg-black/40 z-[2147483646] transform-gpu [transform:translateZ(0)]"
-          onClick={onClose}
-          aria-label="Cerrar"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        />
+  if (typeof document === "undefined") return null;
 
-        {/* SHEET WRAPPER (safe-area) */}
-        <div
-          className="fixed inset-x-0 bottom-0 z-[2147483647] overflow-x-hidden transform-gpu [transform:translateZ(0)]"
-          style={{
-            paddingLeft: "max(12px, env(safe-area-inset-left))",
-            paddingRight: "max(12px, env(safe-area-inset-right))",
-            paddingBottom: "max(18px, env(safe-area-inset-bottom))",
-            paddingTop: 16,
-          }}
-        >
-          <motion.div
-            className="mx-auto w-full max-w-lg rounded-[26px] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.18)] overflow-hidden"
-            initial={{ y: 90, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 90, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 420, damping: 36, mass: 0.9 }}
-            role="dialog"
-            aria-modal="true"
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <>
+          {/* BACKDROP */}
+          <motion.button
+            type="button"
+            className="fixed inset-0 bg-black/40 z-[2147483646] transform-gpu [transform:translateZ(0)]"
+            onClick={onClose}
+            aria-label="Cerrar"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          />
+
+          {/* SHEET WRAPPER (safe-area) */}
+          <div
+            className="fixed inset-x-0 bottom-0 z-[2147483647] overflow-x-hidden transform-gpu [transform:translateZ(0)]"
+            style={{
+              paddingLeft: "max(12px, env(safe-area-inset-left))",
+              paddingRight: "max(12px, env(safe-area-inset-right))",
+              paddingBottom: "max(18px, env(safe-area-inset-bottom))",
+              paddingTop: 16,
+            }}
           >
-            <div className="h-1.5 w-12 bg-black/10 rounded-full mx-auto mt-3" />
+            <motion.div
+              className="mx-auto w-full max-w-lg rounded-[26px] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.18)] overflow-hidden"
+              initial={{ y: 90, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 90, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 420, damping: 36, mass: 0.9 }}
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="h-1.5 w-12 bg-black/10 rounded-full mx-auto mt-3" />
 
-            <div className="p-4 sm:p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-[16px] font-extrabold text-[#3D3D3D] truncate">{title}</h3>
-                  {subtitle ? (
-                    <p className="mt-1 text-[12px] text-black/45 break-words">{subtitle}</p>
-                  ) : null}
+              <div className="p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-[16px] font-extrabold text-[#3D3D3D] truncate">{title}</h3>
+                    {subtitle ? (
+                      <p className="mt-1 text-[12px] text-black/45 break-words">{subtitle}</p>
+                    ) : null}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition shrink-0"
+                    aria-label="Cerrar"
+                    title="Cerrar"
+                  >
+                    <IconifyIcon icon="mdi:close" className="h-6 w-6 text-black/40" />
+                  </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition shrink-0"
-                  aria-label="Cerrar"
-                  title="Cerrar"
-                >
-                  <IconifyIcon icon="mdi:close" className="h-6 w-6 text-black/40" />
-                </button>
-              </div>
+                <div className="mt-4 grid gap-2 max-h-[55vh] overflow-y-auto overflow-x-hidden pr-1">
+                  {options.map((opt) => {
+                    const active = String(opt.value) === String(selectedValue);
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => onSelect(opt.value)}
+                        className={[
+                          "w-full rounded-[18px] border px-4 py-3 text-left transition active:scale-[0.99]",
+                          "min-w-0 overflow-hidden",
+                          active ? "border-[#1E2F5D]/25 bg-[#EAF2FF]" : "border-black/10 bg-white",
+                        ].join(" ")}
+                      >
+                        <div className="flex items-start justify-between gap-3 min-w-0">
+                          <div className="min-w-0">
+                            <p className="text-[14px] font-semibold text-[#3D3D3D] truncate">{opt.label}</p>
+                            {opt.sub ? <p className="mt-1 text-[12px] text-black/45 truncate">{opt.sub}</p> : null}
+                          </div>
 
-              <div className="mt-4 grid gap-2 max-h-[55vh] overflow-y-auto overflow-x-hidden pr-1">
-                {options.map((opt) => {
-                  const active = String(opt.value) === String(selectedValue);
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => onSelect(opt.value)}
-                      className={[
-                        "w-full rounded-[18px] border px-4 py-3 text-left transition active:scale-[0.99]",
-                        "min-w-0 overflow-hidden",
-                        active ? "border-[#1E2F5D]/25 bg-[#EAF2FF]" : "border-black/10 bg-white",
-                      ].join(" ")}
-                    >
-                      <div className="flex items-start justify-between gap-3 min-w-0">
-                        <div className="min-w-0">
-                          <p className="text-[14px] font-semibold text-[#3D3D3D] truncate">{opt.label}</p>
-                          {opt.sub ? <p className="mt-1 text-[12px] text-black/45 truncate">{opt.sub}</p> : null}
+                          {active ? (
+                            <IconifyIcon icon="mdi:check" className="h-5 w-5 text-[#4368C5] shrink-0 mt-[2px]" />
+                          ) : (
+                            <span className="h-5 w-5 shrink-0" />
+                          )}
                         </div>
-
-                        {active ? (
-                          <IconifyIcon icon="mdi:check" className="h-5 w-5 text-[#4368C5] shrink-0 mt-[2px]" />
-                        ) : (
-                          <span className="h-5 w-5 shrink-0" />
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          </motion.div>
-        </div>
-      </>
-    )}
-  </AnimatePresence>
-);
+            </motion.div>
+          </div>
+        </>
+      )}
+    </AnimatePresence>,
+    document.body
+  );
 }
 
 /** Sheet especial para "Servicio" con buscador + chip Fijo/Cotización */
@@ -181,123 +185,126 @@ function ServiceSelectSheet({ open, title, subtitle, options, selectedValue, onC
     });
   }, [q, options]);
 
-  return (
-  <AnimatePresence>
-    {open && (
-      <>
-        {/* BACKDROP */}
-        <motion.button
-          type="button"
-          className="fixed inset-0 bg-black/40 z-[2147483646] transform-gpu [transform:translateZ(0)]"
-          onClick={onClose}
-          aria-label="Cerrar"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        />
+  if (typeof document === "undefined") return null;
 
-        {/* SHEET WRAPPER (safe-area) */}
-        <div
-          className="fixed inset-x-0 bottom-0 z-[2147483647] overflow-x-hidden transform-gpu [transform:translateZ(0)]"
-          style={{
-            paddingLeft: "max(12px, env(safe-area-inset-left))",
-            paddingRight: "max(12px, env(safe-area-inset-right))",
-            paddingBottom: "max(18px, env(safe-area-inset-bottom))",
-            paddingTop: 16,
-          }}
-        >
-          <motion.div
-            className="mx-auto w-full max-w-lg rounded-[26px] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.18)] overflow-hidden"
-            initial={{ y: 90, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 90, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 420, damping: 36, mass: 0.9 }}
-            role="dialog"
-            aria-modal="true"
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <>
+          {/* BACKDROP */}
+          <motion.button
+            type="button"
+            className="fixed inset-0 bg-black/40 z-[2147483646] transform-gpu [transform:translateZ(0)]"
+            onClick={onClose}
+            aria-label="Cerrar"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          />
+
+          {/* SHEET WRAPPER (safe-area) */}
+          <div
+            className="fixed inset-x-0 bottom-0 z-[2147483647] overflow-x-hidden transform-gpu [transform:translateZ(0)]"
+            style={{
+              paddingLeft: "max(12px, env(safe-area-inset-left))",
+              paddingRight: "max(12px, env(safe-area-inset-right))",
+              paddingBottom: "max(18px, env(safe-area-inset-bottom))",
+              paddingTop: 16,
+            }}
           >
-            <div className="h-1.5 w-12 bg-black/10 rounded-full mx-auto mt-3" />
+            <motion.div
+              className="mx-auto w-full max-w-lg rounded-[26px] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.18)] overflow-hidden"
+              initial={{ y: 90, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 90, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 420, damping: 36, mass: 0.9 }}
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="h-1.5 w-12 bg-black/10 rounded-full mx-auto mt-3" />
 
-            <div className="p-4 sm:p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-[16px] font-extrabold text-[#3D3D3D] truncate">{title}</h3>
-                  {subtitle ? (
-                    <p className="mt-1 text-[12px] text-black/45 break-words">{subtitle}</p>
-                  ) : null}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition shrink-0"
-                  aria-label="Cerrar"
-                  title="Cerrar"
-                >
-                  <IconifyIcon icon="mdi:close" className="h-6 w-6 text-black/40" />
-                </button>
-              </div>
-
-              <div className="mt-4 min-w-0">
-                <div className="h-12 w-full rounded-full bg-black/[0.04] px-4 flex items-center gap-2 min-w-0 overflow-hidden">
-                  <IconifyIcon icon="mdi:magnify" className="h-5 w-5 text-black/35 shrink-0" />
-                  <input
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    placeholder="Buscar por nombre o categoría…"
-                    className="w-full bg-transparent outline-none text-[16px] font-medium text-[#3D3D3D] placeholder:text-black/35 min-w-0"
-                    inputMode="search"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-2 max-h-[52vh] overflow-y-auto overflow-x-hidden pr-1">
-                {filtered.map((o) => {
-                  const active = String(o.id) === String(selectedValue);
-                  const isFixed = o.pricing_type === "A";
-
-                  return (
-                    <button
-                      key={o.id}
-                      type="button"
-                      onClick={() => onSelect(o.id)}
-                      className={[
-                        "w-full rounded-[18px] border px-4 py-3 text-left transition active:scale-[0.99]",
-                        "min-w-0 overflow-hidden",
-                        active ? "border-[#1E2F5D]/25 bg-[#F7FAFF]" : "border-black/10 bg-white",
-                      ].join(" ")}
-                    >
-                      <div className="flex items-center justify-between gap-3 min-w-0">
-                        <div className="min-w-0">
-                          <p className="text-[14px] font-extrabold text-[#3D3D3D] truncate">{o.name}</p>
-                          <p className="mt-1 text-[12px] text-black/45 truncate">{o.category}</p>
-                        </div>
-
-                        <span className="shrink-0 rounded-full px-3 py-1 text-[12px] font-semibold bg-black/[0.04] text-black/60 whitespace-nowrap">
-                          {isFixed ? "Fijo" : "Cotización"}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-
-                {filtered.length === 0 && (
-                  <div className="rounded-[18px] border border-black/10 bg-white p-4 min-w-0 overflow-hidden">
-                    <p className="text-[14px] font-semibold text-[#3D3D3D]">Sin resultados</p>
-                    <p className="mt-1 text-[12px] text-black/45">Probá con otro nombre o categoría.</p>
+              <div className="p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-[16px] font-extrabold text-[#3D3D3D] truncate">{title}</h3>
+                    {subtitle ? (
+                      <p className="mt-1 text-[12px] text-black/45 break-words">{subtitle}</p>
+                    ) : null}
                   </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        </div>
 
-        <style>{`
-          html, body { overscroll-behavior-y: contain; }
-        `}</style>
-      </>
-    )}
-  </AnimatePresence>
-);
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="h-10 w-10 rounded-full bg-black/[0.04] grid place-items-center active:scale-[0.98] transition shrink-0"
+                    aria-label="Cerrar"
+                    title="Cerrar"
+                  >
+                    <IconifyIcon icon="mdi:close" className="h-6 w-6 text-black/40" />
+                  </button>
+                </div>
+
+                <div className="mt-4 min-w-0">
+                  <div className="h-12 w-full rounded-full bg-black/[0.04] px-4 flex items-center gap-2 min-w-0 overflow-hidden">
+                    <IconifyIcon icon="mdi:magnify" className="h-5 w-5 text-black/35 shrink-0" />
+                    <input
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                      placeholder="Buscar por nombre o categoría…"
+                      className="w-full bg-transparent outline-none text-[16px] font-medium text-[#3D3D3D] placeholder:text-black/35 min-w-0"
+                      inputMode="search"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-2 max-h-[52vh] overflow-y-auto overflow-x-hidden pr-1">
+                  {filtered.map((o) => {
+                    const active = String(o.id) === String(selectedValue);
+                    const isFixed = o.pricing_type === "A";
+
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => onSelect(o.id)}
+                        className={[
+                          "w-full rounded-[18px] border px-4 py-3 text-left transition active:scale-[0.99]",
+                          "min-w-0 overflow-hidden",
+                          active ? "border-[#1E2F5D]/25 bg-[#F7FAFF]" : "border-black/10 bg-white",
+                        ].join(" ")}
+                      >
+                        <div className="flex items-center justify-between gap-3 min-w-0">
+                          <div className="min-w-0">
+                            <p className="text-[14px] font-extrabold text-[#3D3D3D] truncate">{o.name}</p>
+                            <p className="mt-1 text-[12px] text-black/45 truncate">{o.category}</p>
+                          </div>
+
+                          <span className="shrink-0 rounded-full px-3 py-1 text-[12px] font-semibold bg-black/[0.04] text-black/60 whitespace-nowrap">
+                            {isFixed ? "Fijo" : "Cotización"}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+
+                  {filtered.length === 0 && (
+                    <div className="rounded-[18px] border border-black/10 bg-white p-4 min-w-0 overflow-hidden">
+                      <p className="text-[14px] font-semibold text-[#3D3D3D]">Sin resultados</p>
+                      <p className="mt-1 text-[12px] text-black/45">Probá con otro nombre o categoría.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          <style>{`
+            html, body { overscroll-behavior-y: contain; }
+          `}</style>
+        </>
+      )}
+    </AnimatePresence>,
+    document.body
+  );
 }
 
 function fmtMoneyARS(n) {

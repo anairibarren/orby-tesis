@@ -5,6 +5,34 @@ import { loginUser, loginWithGoogle } from "../../services/auth";
 import { isAdmin } from "../../services/adminAccess";
 import { Icon as IconifyIcon } from "@iconify/react";
 
+function supabaseAuthErrorToEs(err) {
+  const msg = String(err?.message || "").toLowerCase();
+
+  // Supabase suele mandar "Invalid login credentials"
+  if (msg.includes("invalid login credentials") || msg.includes("invalid") && msg.includes("credentials")) {
+    return "Email o contraseña incorrectos.";
+  }
+
+  if (msg.includes("email not confirmed")) {
+    return "Tu email todavía no está confirmado. Revisá tu casilla y confirmalo.";
+  }
+
+  if (msg.includes("user not found")) {
+    return "No existe una cuenta con ese email.";
+  }
+
+  if (msg.includes("too many requests")) {
+    return "Hiciste demasiados intentos. Probá de nuevo en unos minutos.";
+  }
+
+  // Cuando hay problemas de red / fetch
+  if (msg.includes("fetch") || msg.includes("network") || msg.includes("failed to fetch")) {
+    return "No se pudo conectar. Revisá tu conexión e intentá de nuevo.";
+  }
+
+  return "Error al iniciar sesión. Revisá tus datos e intentá de nuevo.";
+}
+
 export default function Login() {
   const navigate = useNavigate();
 
@@ -34,11 +62,10 @@ export default function Login() {
       // 👤 flujo normal
       navigate("/", { replace: true });
     } catch (err) {
-      setErrorMsg(err?.message || "Error al iniciar sesión.");
+      setErrorMsg(supabaseAuthErrorToEs(err));
     } finally {
       setLoading(false);
     }
-  }
 
   async function handleGoogle() {
     setErrorMsg("");

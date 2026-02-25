@@ -688,7 +688,7 @@ async function onShare() {
             type="button"
             onClick={goBack}
             className="absolute left-0 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.06)] grid place-items-center"
-            style={{ top: 12 }}   
+            style={{ top: "calc(env(safe-area-inset-top, 0px) + 12px)" }} 
             aria-label="Volver"
             title="Volver"
           >
