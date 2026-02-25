@@ -698,7 +698,7 @@ async function onShare() {
            {/* share/fav */}
             <div
               className="absolute right-0 flex items-center gap-2"
-              style={{ top: 12 }} 
+              style={{ top: "calc(env(safe-area-inset-top, 0px) + 12px)" }}
             >
             <button
               type="button"
