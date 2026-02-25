@@ -300,28 +300,28 @@ export default function History() {
                 <RowSkeleton />
               </div>
             ) : err ? null : enrichedSorted.length === 0 ? (
-                <div className="w-full flex flex-col items-center justify-center text-center pt-14 pb-10">
-                  <div className="h-16 w-16 rounded-2xl bg-black/[0.04] grid place-items-center">
-                    <IconifyIcon icon="mdi:bell-outline" className="h-7 w-7 text-black/35" />
-                  </div>
+            <div className="mt-8 min-h-[70vh] flex flex-col items-center justify-center text-center px-4">
+              <div className="h-12 w-12 rounded-[14px] bg-black/[0.04] grid place-items-center">
+                <IconifyIcon icon="mdi:bell-outline" className="h-6 w-6 text-black/35" />
+              </div>
 
-                  <p className="mt-6 text-[18px] font-extrabold text-[#3D3D3D]">
-                    Todavía no hiciste solicitudes
-                  </p>
+              <p className="mt-4 text-[14px] font-extrabold text-[#3D3D3D]">
+                Todavía no hiciste solicitudes
+              </p>
 
-                  <p className="mt-2 text-[14px] text-black/45 leading-relaxed max-w-[320px]">
-                    Cuando pidas un servicio, lo vas a ver acá.
-                  </p>
+              <p className="mt-2 text-[12px] text-black/45 leading-relaxed max-w-[260px]">
+                Cuando pidas un servicio, lo vas a ver acá.
+              </p>
 
-                  <button
-                    type="button"
-                    onClick={() => nav("/client/categories")}
-                    className="mt-6 h-11 px-6 rounded-full bg-[#1E2F5D] text-white text-[13px] font-semibold shadow-[0_10px_22px_rgba(30,47,93,0.18)] active:scale-[0.98] transition"
-                  >
-                    Explorar categorías
-                  </button>
-                </div>
-              ) : (
+              <button
+                type="button"
+                onClick={() => nav("/client/categories")}
+                className="mt-5 h-11 px-5 rounded-full bg-[#1E2F5D] text-white text-[13px] font-semibold shadow-[0_10px_22px_rgba(30,47,93,0.18)] active:scale-[0.98] transition"
+              >
+                Explorar categorías
+              </button>
+            </div>
+          ) : (
               grouped.map((g) => (
                 <div key={g.key}>
                   <SectionTitle>{g.label}</SectionTitle>
