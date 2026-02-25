@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Icon as IconifyIcon } from "@iconify/react";
 import { AnimatePresence, motion } from "framer-motion";
+import { createPortal } from "react-dom";
 
 import { useAuth } from "../../hooks/useAuth";
 import { useToast } from "../../components/Toast";
@@ -222,33 +223,41 @@ function EmptyState({ title, desc }) {
 }
 
 function Sheet({ open, onClose, children }) {
-  return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          className="fixed inset-0 z-[9999]"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <button type="button" className="absolute inset-0 bg-black/40" onClick={onClose} aria-label="Cerrar" />
+  if (!open) return null;
 
-          <motion.div
-            className="absolute left-0 right-0 bottom-0"
-            initial={{ y: 44, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 44, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 380, damping: 34 }}
-          >
-            <div className="mx-auto w-full max-w-[520px] px-4 pb-6">
-              <div className="rounded-[28px] bg-white shadow-2xl overflow-hidden border border-black/10">
-                {children}
-              </div>
+  return createPortal(
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 z-[99999]"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+      >
+        {/* overlay */}
+        <button
+          type="button"
+          className="absolute inset-0 bg-black/40"
+          onClick={onClose}
+          aria-label="Cerrar"
+        />
+
+        {/* container */}
+        <motion.div
+          className="absolute left-0 right-0 bottom-0"
+          initial={{ y: 44, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 44, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 380, damping: 34 }}
+        >
+          <div className="mx-auto w-full max-w-[520px] px-4 pb-[calc(24px+env(safe-area-inset-bottom))]">
+            <div className="rounded-[28px] bg-white shadow-2xl overflow-hidden border border-black/10">
+              {children}
             </div>
-          </motion.div>
+          </div>
         </motion.div>
-      )}
-    </AnimatePresence>
+      </motion.div>
+    </AnimatePresence>,
+    document.body
   );
 }
 
