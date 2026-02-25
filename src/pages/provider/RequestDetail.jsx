@@ -447,17 +447,6 @@ export default function ProviderRequestDetail() {
             <span className="text-2xl leading-none">‹</span>
           </button>
 
-          {/* ⋯ */}
-          <button
-            type="button"
-            onClick={() => setMenuOpen(true)}
-            className="absolute right-0 h-11 w-11 rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.06)] grid place-items-center"
-            aria-label="Opciones"
-            title="Opciones"
-          >
-            <IconifyIcon icon="mdi:dots-horizontal" className="h-6 w-6 text-black/45" />
-          </button>
-
           <h1 className="text-[18px] font-extrabold text-[#3D3D3D]">Detalle de solicitud</h1>
         </div>
 
