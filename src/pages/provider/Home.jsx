@@ -569,7 +569,7 @@ export default function Home() {
               </div>
 
               <IconCircleButton
-                onClick={() => nav("/provider/requests")}
+                onClick={() => nav("/provider/agenda")}
                 title="Solicitudes"
                 className="bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
               >
