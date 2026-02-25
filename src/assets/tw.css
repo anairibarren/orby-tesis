@@ -187,3 +187,14 @@ html, body {
 body {
   -webkit-overflow-scrolling: touch;
 }
+
+:root{
+  --sat: env(safe-area-inset-top);
+  --sab: env(safe-area-inset-bottom);
+}
+
+/* contenedor general que empuja todo fuera del notch */
+.safe-area {
+  padding-top: var(--sat);
+  padding-bottom: var(--sab);
+}

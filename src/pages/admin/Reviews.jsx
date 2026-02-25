@@ -341,7 +341,7 @@ export default function Reviews() {
                     aria-label="Ver detalle"
                     title="Ver detalle"
                   >
-                    <FiInfo size={18} />
+                    <FiInfo size={18} className="text-black/60" />
                   </button>
                 </td>
               </tr>

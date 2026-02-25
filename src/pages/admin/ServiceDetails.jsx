@@ -7,6 +7,7 @@ import { isAdmin } from "../../services/adminAccess";
 import Loading from "../../components/Loading";
 import { useToast } from "../../components/Toast";
 import { Icon } from "@iconify/react";
+import { createPortal } from "react-dom";
 
 /* ================= UI COMPONENTS ================= */
 
@@ -47,18 +48,11 @@ function InfoRow({ label, value }) {
 }
 
 /* ================= SHEET (bottom) ================= */
-function Sheet({
-  open,
-  onClose,
-  title,
-  subtitle,
-  children,
-  disabledClose = false,
-}) {
+ function Sheet({ open, onClose, title, subtitle, children, disabledClose = false }) {
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-[9999]">
+  return createPortal(
+    <div className="fixed inset-0 z-[2147483647]">
       <button
         type="button"
         className="absolute inset-0 bg-black/40"
@@ -66,7 +60,8 @@ function Sheet({
         aria-label="Cerrar"
       />
 
-      <div className="absolute left-0 right-0 bottom-0 px-4 pb-6">
+      {/* 👇 safe area bottom para iOS */}
+      <div className="absolute left-0 right-0 bottom-0 px-4 pb-[calc(24px+env(safe-area-inset-bottom))]">
         <div className="mx-auto max-w-[520px] rounded-[28px] bg-white shadow-2xl overflow-hidden border border-black/10 animate-sheetUp">
           <div className="pt-3 flex justify-center">
             <div className="h-1.5 w-14 rounded-full bg-black/10" />
@@ -98,7 +93,8 @@ function Sheet({
         }
         .animate-sheetUp { animation: sheetUp .18s ease-out both; }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }
 

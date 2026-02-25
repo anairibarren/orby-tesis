@@ -447,8 +447,10 @@ export default function Bookings() {
                       </div>
                     </td>
 
-                    <td className="p-3 text-center w-[28%]">
-                      <StatusBadge status={r.status} />
+                    <td className="py-3 pl-3 pr-1 text-center w-[28%]">
+                      <div className="flex justify-center translate-x-[-6px]">
+                        <StatusBadge status={r.status} />
+                      </div>
                     </td>
 
                     {/* ✅ más a la izquierda: padding-left menor y alineación start */}

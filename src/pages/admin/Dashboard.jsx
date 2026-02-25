@@ -141,11 +141,6 @@ function MetricCard({ icon, label, value, hint }) {
           </p>
           {hint ? <p className="mt-1 text-[12px] text-black/35">{hint}</p> : null}
         </div>
-
-        {/* Flechita */}
-        <div className="h-10 w-10 rounded-full bg-black/5 grid place-items-center">
-          <Icon icon="mdi:chevron-right" className="h-5 w-5 text-black/45" />
-        </div>
       </div>
     </div>
   );
