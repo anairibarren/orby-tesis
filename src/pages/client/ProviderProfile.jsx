@@ -667,10 +667,7 @@ async function onShare() {
   ];
 
   return (
-      <div
-        className="min-h-screen bg-[#F5F5F5] overflow-x-hidden"
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
-      >      
+      <div className="min-h-screen bg-[#F5F5F5] overflow-x-hidden">      
       {/* ✅ wrapper mobile-first: centra y limita el ancho + paddings seguros */}
       <div
         className="mx-auto w-full max-w-[520px]"
@@ -681,24 +678,27 @@ async function onShare() {
       >
         {/* TOP AREA */}
         <div className="relative">
-          <div className="h-[78px] sm:h-[92px] w-full bg-[#F5F5F5]" />
+          <div
+            className="w-full bg-[#F5F5F5]"
+            style={{ height: "calc(env(safe-area-inset-top, 0px) + 16px)" }}
+          />
 
           {/* back */}
           <button
             type="button"
             onClick={goBack}
-            className="absolute left-0 top-4 sm:top-6 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.06)] grid place-items-center"
-            style={{ top: "calc(env(safe-area-inset-top) + 16px)" }}
+            className="absolute left-0 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.06)] grid place-items-center"
+            style={{ top: 12 }}   
             aria-label="Volver"
             title="Volver"
           >
             <span className="text-[26px] leading-none">‹</span>
           </button>
 
-          {/* share/fav */}
-          <div
+           {/* share/fav */}
+            <div
               className="absolute right-0 flex items-center gap-2"
-              style={{ top: "calc(env(safe-area-inset-top) + 16px)" }}
+              style={{ top: 12 }} 
             >
             <button
               type="button"
@@ -726,7 +726,7 @@ async function onShare() {
           </div>
 
           {/* HEADER CARD */}
-          <div className="pt-1">
+          <div className="pt-[64px] sm:pt-[72px]">
             <Card className="p-4 sm:p-5">
               <div className="flex items-center gap-3 sm:gap-4">
                 <div className="h-[60px] w-[60px] sm:h-[70px] sm:w-[70px] rounded-[16px] sm:rounded-[18px] bg-black/[0.03] overflow-hidden grid place-items-center shrink-0 border border-black/10">
