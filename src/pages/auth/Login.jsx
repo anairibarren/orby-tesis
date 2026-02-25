@@ -44,28 +44,28 @@ export default function Login() {
   const [errorMsg, setErrorMsg] = useState("");
 
   async function handleSubmit(e) {
-    e.preventDefault();
-    setErrorMsg("");
-    setLoading(true);
+  e.preventDefault();
+  setErrorMsg("");
+  setLoading(true);
 
-    try {
-      // ✅ mantenemos tu login, pero capturamos el resultado para chequear admin
-      const userCredential = await loginUser(email.trim(), password);
-      const user = userCredential?.user;
+  try {
+    const userCredential = await loginUser(email.trim(), password);
+    const user = userCredential?.user;
 
-      // 👑 admin → directo al panel
-      if (user && isAdmin(user)) {
-        navigate("/admin/dashboard", { replace: true });
-        return;
-      }
-
-      // 👤 flujo normal
-      navigate("/", { replace: true });
-    } catch (err) {
-      setErrorMsg(supabaseAuthErrorToEs(err));
-    } finally {
-      setLoading(false);
+    // admin → directo al panel
+    if (user && isAdmin(user)) {
+      navigate("/admin/dashboard", { replace: true });
+      return;
     }
+
+    // flujo normal
+    navigate("/", { replace: true });
+  } catch (err) {
+    setErrorMsg(supabaseAuthErrorToEs(err));
+  } finally {
+    setLoading(false);
+  }
+}
 
   async function handleGoogle() {
     setErrorMsg("");
