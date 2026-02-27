@@ -8,6 +8,7 @@ import Loading from "../../components/Loading";
 import { useToast } from "../../components/Toast";
 import { Icon } from "@iconify/react";
 import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "framer-motion";
 
 /* ================= UI COMPONENTS ================= */
 
