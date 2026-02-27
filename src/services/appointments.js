@@ -79,9 +79,20 @@ function normalizeParticipants(row, actorId, expectedActor /* 'client' | 'provid
 
 /* ---------------- CRUD ---------------- */
 export async function createAppointment(payload) {
-  const { data, error } = await supabase.from(TABLE).insert(payload).select("*").single();
+  const { data, error } = await supabase
+    .from(TABLE)
+    .insert(payload)
+    .select("*"); // ✅ devuelve array (no 406)
+
   if (error) throw error;
-  return data;
+
+  // data es array
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row) {
+    // fallback por si RLS no deja devolver la fila insertada
+    return await getAppointmentByRequestId(payload.request_id);
+  }
+  return row;
 }
 
 export async function listMyAppointmentsAsProvider(providerId) {

@@ -1,5 +1,5 @@
 // src/pages/client/Schedule.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Icon as IconifyIcon } from "@iconify/react";
@@ -381,6 +381,8 @@ export default function ClientSchedule() {
   const [successOpen, setSuccessOpen] = useState(false);
   const [successSummary, setSuccessSummary] = useState(null);
 
+  const confirmingRef = useRef(false);
+
   // confirm UI (solo texto + bloqueo)
   const [confirming, setConfirming] = useState(false);
 
@@ -611,124 +613,125 @@ export default function ClientSchedule() {
     throw lastErr;
   }
 
-  async function onConfirm() {
-    if (confirming) return;
+async function onConfirm() {
+  // ✅ primero validaciones SIN lock
+  if (!user?.id) return toast.error("Error", "Tenés que iniciar sesión.");
+  if (!ps?.provider_id) return toast.error("Error", "Falta prestador.");
+  if (!draft?.description) return toast.error("Error", "Falta descripción.");
+  if (!selectedDate || !selectedTime) return toast.warning("Falta info", "Elegí día y horario.");
 
-    if (!user?.id) return toast.error("Error", "Tenés que iniciar sesión.");
-    if (!ps?.provider_id) return toast.error("Error", "Falta prestador.");
-    if (!draft?.description) return toast.error("Error", "Falta descripción.");
-    if (!selectedDate || !selectedTime) return toast.warning("Falta info", "Elegí día y horario.");
-
-    if (takenSet.has(selectedTime)) {
-      toast.warning("Ocupado", "Ese horario ya fue tomado. Elegí otro.");
-      return;
-    }
-    if (isPastSlot(selectedDate, selectedTime)) {
-      toast.warning("Horario no válido", "Ese horario ya pasó. Elegí otro.");
-      return;
-    }
-
-    const startLocal = new Date(`${selectedDate}T${selectedTime}`);
-    const startISO = startLocal.toISOString();
-
-    const now = new Date();
-    if (startLocal.getTime() <= now.getTime() + PAST_GUARD_MINUTES * 60 * 1000) {
-      toast.warning("Horario no válido", "Ese horario ya pasó. Elegí otro.");
-      return;
-    }
-
-    setConfirming(true);
-
-    try {
-      const { data: existing, error: exErr } = await supabase
-        .from("service_requests")
-        .select("id")
-        .eq("provider_id", ps.provider_id)
-        .eq("preferred_datetime", startISO)
-        .in("status", ACTIVE_LOCK_STATUSES)
-        .limit(1);
-
-      if (exErr) throw exErr;
-      if ((existing ?? []).length > 0) {
-        toast.warning("Ocupado", "Alguien tomó ese horario recién. Elegí otro.");
-        await refreshTaken(ps.provider_id);
-        return;
-      }
-
-      const end = new Date(startISO);
-      end.setMinutes(end.getMinutes() + durationMin);
-      const endISO = end.toISOString();
-
-      const serviceName = ps?.service_catalog?.name || "Servicio";
-      const providerName = ps?.profiles?.full_name || "";
-
-      const pricingType = ps?.service_catalog?.pricing_type || null;
-      const basePrice = ps?.base_price != null ? Number(ps.base_price) : null;
-      const serviceAmountForDB = pricingType === "A" && Number.isFinite(basePrice) ? basePrice : null;
-
-      const paymentMethod = draft?.payment_method || "cash";
-      const neighborhood = draft?.neighborhood ?? profile?.neighborhood ?? null;
-      const address = draft?.address ?? null;
-
-      const descriptionCompiled = String(draft?.description_compiled || draft?.description || "").trim();
-
-      const payload = {
-        client_id: user.id,
-        provider_id: ps.provider_id,
-
-        provider_service_id: ps.id,
-        service_id: ps.id,
-        catalog_id: ps.catalog_id,
-
-        description: descriptionCompiled,
-        neighborhood: neighborhood || null,
-        address: address || null,
-
-        preferred_datetime: startISO,
-        status: "solicitada",
-
-        payment_method: paymentMethod,
-        payment_status: String(paymentMethod || "").toLowerCase() === "mp" ? "pending" : "not_required",
-
-        service_amount: serviceAmountForDB,
-        fee_percent: 7.0,
-      };
-
-      const req = await createRequestWithFallback(payload);
-
-      await ensureAppointmentForRequest({
-        request_id: req.id,
-        provider_id: ps.provider_id,
-        client_id: user.id,
-        start_at: startISO,
-        end_at: endISO,
-      });
-
-      await refreshTaken(ps.provider_id);
-
-      const summary = {
-        requestId: req.id,
-        providerServiceId: ps.id,
-        serviceName,
-        providerName,
-        datetimeISO: startISO,
-        paymentMethod,
-        dateLabel: formatDateOnly(startISO),
-        timeLabel: selectedTime, // ✅ exacto
-      };
-
-      localStorage.setItem(successKey(), JSON.stringify(summary));
-      localStorage.removeItem(draftKey(id));
-
-      setSuccessSummary(summary);
-      setSuccessOpen(true);
-      toast.success("Listo", "Turno confirmado.");
-    } catch (e) {
-      toast.error("Error", e?.message || "No se pudo crear la solicitud.");
-    } finally {
-      setConfirming(false);
-    }
+  if (takenSet.has(selectedTime)) {
+    toast.warning("Ocupado", "Ese horario ya fue tomado. Elegí otro.");
+    return;
   }
+  if (isPastSlot(selectedDate, selectedTime)) {
+    toast.warning("Horario no válido", "Ese horario ya pasó. Elegí otro.");
+    return;
+  }
+
+  // ✅ ahora sí lock real
+  if (confirmingRef.current) return;
+  confirmingRef.current = true;
+
+  const startLocal = new Date(`${selectedDate}T${selectedTime}`);
+  const startISO = startLocal.toISOString();
+
+  const now = new Date();
+  if (startLocal.getTime() <= now.getTime() + PAST_GUARD_MINUTES * 60 * 1000) {
+    confirmingRef.current = false; // ✅ liberar porque salimos antes del try/finally
+    toast.warning("Horario no válido", "Ese horario ya pasó. Elegí otro.");
+    return;
+  }
+
+  setConfirming(true);
+
+  try {
+    const { data: existing, error: exErr } = await supabase
+      .from("service_requests")
+      .select("id")
+      .eq("provider_id", ps.provider_id)
+      .eq("preferred_datetime", startISO)
+      .in("status", ACTIVE_LOCK_STATUSES)
+      .limit(1);
+
+    if (exErr) throw exErr;
+
+    if ((existing ?? []).length > 0) {
+      toast.warning("Ocupado", "Alguien tomó ese horario recién. Elegí otro.");
+      await refreshTaken(ps.provider_id);
+      return;
+    }
+
+    const end = new Date(startISO);
+    end.setMinutes(end.getMinutes() + durationMin);
+    const endISO = end.toISOString();
+
+    const serviceName = ps?.service_catalog?.name || "Servicio";
+    const providerName = ps?.profiles?.full_name || "";
+
+    const pricingType = ps?.service_catalog?.pricing_type || null;
+    const basePrice = ps?.base_price != null ? Number(ps.base_price) : null;
+    const serviceAmountForDB = pricingType === "A" && Number.isFinite(basePrice) ? basePrice : null;
+
+    const paymentMethod = draft?.payment_method || "cash";
+    const neighborhood = draft?.neighborhood ?? profile?.neighborhood ?? null;
+    const address = draft?.address ?? null;
+
+    const descriptionCompiled = String(draft?.description_compiled || draft?.description || "").trim();
+
+    const payload = {
+      client_id: user.id,
+      provider_id: ps.provider_id,
+      provider_service_id: ps.id,
+      service_id: ps.id,
+      catalog_id: ps.catalog_id,
+      description: descriptionCompiled,
+      neighborhood: neighborhood || null,
+      address: address || null,
+      preferred_datetime: startISO,
+      status: "solicitada",
+      payment_method: paymentMethod,
+      payment_status: String(paymentMethod || "").toLowerCase() === "mp" ? "pending" : "not_required",
+      service_amount: serviceAmountForDB,
+      fee_percent: 7.0,
+    };
+
+    const req = await createRequestWithFallback(payload);
+
+    await ensureAppointmentForRequest({
+      request_id: req.id,
+      provider_id: ps.provider_id,
+      client_id: user.id,
+      start_at: startISO,
+      end_at: endISO,
+    });
+
+    await refreshTaken(ps.provider_id);
+
+    const summary = {
+      requestId: req.id,
+      providerServiceId: ps.id,
+      serviceName,
+      providerName,
+      datetimeISO: startISO,
+      paymentMethod,
+      dateLabel: formatDateOnly(startISO),
+      timeLabel: selectedTime,
+    };
+
+    localStorage.setItem(successKey(), JSON.stringify(summary));
+    localStorage.removeItem(draftKey(id));
+
+    setSuccessSummary(summary);
+    setSuccessOpen(true);
+    toast.success("Listo", "Turno confirmado.");
+  } catch (e) {
+    toast.error("Error", e?.message || "No se pudo crear la solicitud.");
+  } finally {
+    confirmingRef.current = false; 
+    setConfirming(false); 
+  }
+}
 
   if (loading) return <Loading />;
 

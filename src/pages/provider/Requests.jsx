@@ -287,39 +287,57 @@ function EmptyState({ title, desc }) {
 
 /* ---------------- BottomSheet base ---------------- */
 function Sheet({ open, onClose, children }) {
-  if (!open) return null;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  // (opcional) bloquear scroll cuando está abierto
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!mounted) return null;
 
   return createPortal(
     <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-[99999]"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-      >
-        {/* overlay */}
-        <button
-          type="button"
-          className="absolute inset-0 bg-black/40"
-          onClick={onClose}
-          aria-label="Cerrar"
-        />
-
-        {/* container */}
+      {open && (
         <motion.div
-          className="absolute left-0 right-0 bottom-0"
-          initial={{ y: 44, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 44, opacity: 0 }}
-          transition={{ type: "spring", stiffness: 380, damping: 34 }}
+          key="provider-sheet" // ✅ key estable
+          className="fixed inset-0 z-[99999]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
         >
-          <div className="mx-auto w-full max-w-[520px] px-4 pb-[calc(24px+env(safe-area-inset-bottom))]">
-            <div className="rounded-[28px] bg-white shadow-2xl overflow-hidden border border-black/10">
-              {children}
+          {/* overlay */}
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            onClick={onClose}
+            aria-label="Cerrar"
+          />
+
+          {/* container */}
+          <motion.div
+            className="absolute left-0 right-0 bottom-0"
+            initial={{ y: 44, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 44, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 380, damping: 34 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto w-full max-w-[520px] px-4 pb-[calc(24px+env(safe-area-inset-bottom))]">
+              <div className="rounded-[28px] bg-white shadow-2xl overflow-hidden border border-black/10">
+                {children}
+              </div>
             </div>
-          </div>
+          </motion.div>
         </motion.div>
-      </motion.div>
+      )}
     </AnimatePresence>,
     document.body
   );
@@ -770,8 +788,7 @@ export default function Requests() {
     const serviceId = req?.service_id ?? req?.provider_service_id ?? null;
     if (!serviceId) return 60;
 
-    let res = await supabase.from("provider_services").select("id, duration_minutes").eq("id", serviceId).single();
-    if (res.error && isMissingColumn(res.error, "duration_minutes")) return 60;
+    let res = await supabase.from("provider_services").select("id, duration_minutes").eq("id", serviceId).maybeSingle();    if (res.error && isMissingColumn(res.error, "duration_minutes")) return 60;
     if (res.error) return 60;
 
     const n = Number(res.data?.duration_minutes);

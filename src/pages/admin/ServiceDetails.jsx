@@ -49,47 +49,78 @@ function InfoRow({ label, value }) {
 
 /* ================= SHEET (bottom) ================= */
 function Sheet({ open, onClose, title, subtitle, children, disabledClose = false }) {
-  if (!open) return null;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  // opcional: bloquear scroll
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[2147483647]">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/40"
-        onClick={() => !disabledClose && onClose?.()}
-        aria-label="Cerrar"
-      />
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          key="admin-service-sheet" // ✅ key estable
+          className="fixed inset-0"
+          style={{ zIndex: 2147483647 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            onClick={() => !disabledClose && onClose?.()}
+            aria-label="Cerrar"
+          />
 
-      {/* 👇 safe area bottom para iOS */}
-      <div className="absolute left-0 right-0 bottom-0 px-4 pb-[calc(24px+env(safe-area-inset-bottom))]">
-        <div className="mx-auto max-w-[520px] rounded-[28px] bg-white shadow-2xl overflow-hidden border border-black/10 animate-sheetUp">
-          <div className="pt-3 flex justify-center">
-            <div className="h-1.5 w-14 rounded-full bg-black/10" />
-          </div>
+          <motion.div
+            className="absolute left-0 right-0 bottom-0 px-4"
+            style={{ paddingBottom: "calc(24px + env(safe-area-inset-bottom))" }}
+            initial={{ y: 44, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 44, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 380, damping: 34 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto max-w-[520px] rounded-[28px] bg-white shadow-2xl overflow-hidden border border-black/10">
+              <div className="pt-3 flex justify-center">
+                <div className="h-1.5 w-14 rounded-full bg-black/10" />
+              </div>
 
-          <div className="px-6 pt-4 pb-5">
-            <div className="flex items-start gap-3">
-              <div className="min-w-0">
-                <h3 className="text-[16px] font-extrabold text-[#3D3D3D]">{title}</h3>
-                {subtitle ? (
-                  <p className="mt-1 text-[12px] text-black/45 leading-snug">{subtitle}</p>
-                ) : null}
+              <div className="px-6 pt-4 pb-5">
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-[16px] font-extrabold text-[#3D3D3D]">{title}</h3>
+                    {subtitle ? (
+                      <p className="mt-1 text-[12px] text-black/45 leading-snug">{subtitle}</p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="mt-5">{children}</div>
               </div>
             </div>
 
-            <div className="mt-5">{children}</div>
-          </div>
-        </div>
-      </div>
-
-      <style>{`
-        @keyframes sheetUp {
-          from { transform: translateY(16px); opacity: 0; }
-          to   { transform: translateY(0); opacity: 1; }
-        }
-        .animate-sheetUp { animation: sheetUp .18s ease-out both; }
-      `}</style>
-    </div>,
+            <style>{`
+              @keyframes sheetUp {
+                from { transform: translateY(16px); opacity: 0; }
+                to   { transform: translateY(0); opacity: 1; }
+              }
+            `}</style>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
     document.body
   );
 }

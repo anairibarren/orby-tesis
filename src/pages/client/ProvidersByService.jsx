@@ -376,49 +376,56 @@ export default function ProvidersByService() {
               const verified = hasCertification(prov);
 
               return (
-                <button
-                  key={o.id}
-                  type="button"
-                  onClick={() => goProfile(o.id)}
-                  className="w-full text-left rounded-[24px] bg-white shadow-[0_12px_26px_rgba(0,0,0,0.08)] overflow-hidden active:scale-[0.995] transition"
-                >
-                  <div className="px-4 pt-4 pb-3 flex items-start gap-3">
-                    <div className="h-12 w-12 rounded-[18px] bg-black/[0.04] overflow-hidden shrink-0 grid place-items-center">
-                      {avatar ? (
-                        <img src={avatar} alt={prov?.full_name || "Prestador"} className="h-full w-full object-cover" />
-                      ) : (
-                        <IconifyIcon icon="mdi:account" className="h-6 w-6 text-black/25" />
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <p className="text-[16px] font-extrabold text-[#3D3D3D] truncate">{prov?.full_name || "Prestador"}</p>
-                        {verified && <VerifiedBadgeIcon />}
-                      </div>
-
-                      <p className="mt-1 text-[12px] text-black/45 truncate">{prov?.neighborhood || "—"}</p>
-                    </div>
-
-                    <RatingChip value={rating} count={ratingCount} />
+                <div
+                key={o.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => goProfile(o.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    goProfile(o.id);
+                  }
+                }}
+                className="w-full text-left rounded-[24px] bg-white shadow-[0_12px_26px_rgba(0,0,0,0.08)] overflow-hidden active:scale-[0.995] transition cursor-pointer"
+              >
+                <div className="px-4 pt-4 pb-3 flex items-start gap-3">
+                  <div className="h-12 w-12 rounded-[18px] bg-black/[0.04] overflow-hidden shrink-0 grid place-items-center">
+                    {avatar ? (
+                      <img src={avatar} alt={prov?.full_name || "Prestador"} className="h-full w-full object-cover" />
+                    ) : (
+                      <IconifyIcon icon="mdi:account" className="h-6 w-6 text-black/25" />
+                    )}
                   </div>
 
-                  <div className="px-4 py-3 bg-black/[0.02] flex items-center justify-between gap-3">
-                    <span className="text-[14px] font-extrabold text-[#2A4691]">{price ? `Desde ${price}` : "Cotización"}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <p className="text-[16px] font-extrabold text-[#3D3D3D] truncate">{prov?.full_name || "Prestador"}</p>
+                      {verified && <VerifiedBadgeIcon />}
+                    </div>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        goSchedule(o.id);
-                      }}
-                      className="h-10 px-5 rounded-full bg-[#1E2F5D] text-white text-[13px] font-semibold active:scale-[0.98] shrink-0 flex items-center gap-2"
-                    >
-                      <IconifyIcon icon="mdi:calendar" className="h-4 w-4" />
-                      Agendar
-                    </button>
+                    <p className="mt-1 text-[12px] text-black/45 truncate">{prov?.neighborhood || "—"}</p>
                   </div>
-                </button>
+
+                  <RatingChip value={rating} count={ratingCount} />
+                </div>
+
+                <div className="px-4 py-3 bg-black/[0.02] flex items-center justify-between gap-3">
+                  <span className="text-[14px] font-extrabold text-[#2A4691]">{price ? `Desde ${price}` : "Cotización"}</span>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation(); // ✅ mantiene click del card separado
+                      goSchedule(o.id);
+                    }}
+                    className="h-10 px-5 rounded-full bg-[#1E2F5D] text-white text-[13px] font-semibold active:scale-[0.98] shrink-0 flex items-center gap-2"
+                  >
+                    <IconifyIcon icon="mdi:calendar" className="h-4 w-4" />
+                    Agendar
+                  </button>
+                </div>
+              </div>
               );
             })}
 

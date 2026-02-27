@@ -17,7 +17,7 @@ function isOfflineLikeError(e) {
     msg.includes("failed to fetch") ||
     msg.includes("networkerror") ||
     msg.includes("load failed") ||
-    msg.includes("fetch") && msg.includes("failed")
+    (msg.includes("fetch") && msg.includes("failed"))
   );
 }
 
